@@ -1,0 +1,74 @@
+:root {
+    --p-indigo: #4f46e5;
+    --p-violet: #7c3aed;
+    --p-blue: #0ea5e9;
+    --p-emerald: #10b981;
+    --white: #ffffff;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-400: #94a3b8;
+    --slate-600: #475569;
+    --slate-900: #0f172a;
+}
+
+/* --- Base --- */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Glassmorphism --- */
+.glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* --- Animations --- */
+.hover-scale { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.hover-scale:hover { transform: scale(1.02); }
+
+.hover-glow:hover {
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.3) !important;
+}
+
+/* --- Buttons Raffinés --- */
+.btn-premium {
+    background: linear-gradient(135deg, var(--p-indigo) 0%, var(--p-violet) 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.2);
+    transition: all 0.3s ease;
+}
+.btn-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(79, 70, 229, 0.35);
+    color: white;
+}
+
+/* --- Typography --- */
+.font-outfit { font-family: 'Outfit', sans-serif; }
+.ls-1 { letter-spacing: 0.05em; }
+
+/* --- Stats Cards --- */
+.stat-card-premium {
+    background: white;
+    padding: 2rem;
+    border-radius: 1.5rem;
+    border: 1px solid var(--slate-100);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+/* --- Forms Custom --- */
+.form-floating > .form-control:focus ~ label::after,
+.form-floating > .form-control:not(:placeholder-shown) ~ label::after {
+    background-color: transparent !important;
+}
+
+/* Scrollbar Style */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--slate-50); }
+::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
