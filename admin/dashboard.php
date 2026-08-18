@@ -1,144 +1,185 @@
 <?php
+declare(strict_types=1);
+
+/**
+ * dashboard.php – Tableau de bord de l'administrateur système.
+ */
 require_once "../includes/layout.php";
 
 // Protection admin
 check_role('admin');
 
-// Statistiques pour l'affichage
+$id_admin = (int)$_SESSION["id"];
+
+// Statistiques Centralisées
+$stats = [
+    'gerants' => ['total' => 0, 'actifs' => 0],
+    'candidats' => 0,
+    'opportunites' => 0,
+    'candidatures' => 0
+];
+$chart_roles = [];
+$chart_dates = [];
+$chart_top_opps = [];
+
 try {
-    $stats = [
-        'gerants' => [
-            'total' => (int)$pdo->query("SELECT COUNT(*) FROM utilisateurs WHERE role = 'gerant'")->fetchColumn(),
-            'actifs' => (int)$pdo->query("SELECT COUNT(*) FROM utilisateurs WHERE role = 'gerant' AND statut = 'actif'")->fetchColumn()
-        ],
-        'candidats' => (int)$pdo->query("SELECT COUNT(*) FROM utilisateurs WHERE role = 'candidat'")->fetchColumn(),
-        'offre' => (int)$pdo->query("SELECT COUNT(*) FROM offres")->fetchColumn(),
-        'candidatures' => (int)$pdo->query("SELECT COUNT(*) FROM candidatures")->fetchColumn(),
-        'sessions' => [
-            'actives' => (int)$pdo->query("SELECT COUNT(*) FROM sessions_offres WHERE statut = 'active'")->fetchColumn()
-        ]
-    ];
+    // Optimisation SQL : Agrégation globale en une seule requête
+    $stmt = $pdo->prepare("
+        SELECT 
+            (SELECT COUNT(*) FROM utilisateurs WHERE role = 'gerant') as total_gerants,
+            (SELECT COUNT(*) FROM utilisateurs WHERE role = 'gerant' AND statut = 'actif') as actifs_gerants,
+            (SELECT COUNT(*) FROM utilisateurs WHERE role = 'candidat') as total_candidats,
+            (SELECT COUNT(*) FROM concours) as total_offres,
+            (SELECT COUNT(*) FROM candidatures) as total_candidatures
+    ");
+    $stmt->execute();
+    $res = $stmt->fetch();
+    if ($res) {
+        $stats = [
+            'gerants' => ['total' => (int)$res['total_gerants'], 'actifs' => (int)$res['actifs_gerants']],
+            'candidats' => (int)$res['total_candidats'],
+            'opportunites' => (int)$res['total_offres'],
+            'candidatures' => (int)$res['total_candidatures']
+        ];
+    }
 
-    $stmt_chart_roles = $pdo->query("SELECT role, COUNT(*) as count FROM utilisateurs GROUP BY role");
-    $chart_roles = $stmt_chart_roles->fetchAll(PDO::FETCH_ASSOC);
+    // Répartition par rôle pour le graphique
+    $stmt_roles = $pdo->prepare("SELECT role, COUNT(*) as count FROM utilisateurs GROUP BY role");
+    $stmt_roles->execute();
+    $chart_roles = $stmt_roles->fetchAll();
 
-    $stmt_chart_candidatures_date = $pdo->query("SELECT DATE(date_candidature) as date, COUNT(*) as count FROM candidatures GROUP BY DATE(date_candidature) ORDER BY date DESC LIMIT 10");
-    $chart_dates = array_reverse($stmt_chart_candidatures_date->fetchAll(PDO::FETCH_ASSOC));
+    // Activité récente (10 derniers jours)
+    $stmt_dates = $pdo->prepare("
+        SELECT DATE(date_candidature) as date, COUNT(*) as count 
+        FROM candidatures 
+        GROUP BY DATE(date_candidature) 
+        ORDER BY date DESC 
+        LIMIT 10
+    ");
+    $stmt_dates->execute();
+    $chart_dates = array_reverse($stmt_dates->fetchAll(PDO::FETCH_ASSOC));
+
+    // Top 5 opportunités les plus demandées
+    $stmt_top = $pdo->prepare("
+        SELECT co.titre, COUNT(c.id) as total_candidatures
+        FROM concours co
+        LEFT JOIN candidatures c ON co.id = c.id_concours
+        GROUP BY co.id
+        ORDER BY total_candidatures DESC
+        LIMIT 5
+    ");
+    $stmt_top->execute();
+    $chart_top_opps = $stmt_top->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (PDOException $e) {
-    // Erreur silencieuse
+    error_log("Admin Dashboard Error: " . $e->getMessage());
 }
 
-include_header("Administration");
+include_header("Administration Admissio");
 ?>
 
-<div class="row mb-5 animate__animated animate__fadeIn">
-    <div class="col-12">
-        <div class="px-5 py-5 rounded-5 shadow-premium border-0 d-flex justify-content-between align-items-center position-relative overflow-hidden" style="background: var(--primary-gradient);">
-            <!-- Decorative circle -->
-            <div class="position-absolute rounded-circle opacity-10 bg-white" style="width: 300px; height: 300px; top: -100px; right: -50px;"></div>
-            
-            <div class="position-relative z-1">
-                <h1 class="display-5 fw-extrabold text-white mb-2">Dashboard Administratif 🛡️</h1>
-                <p class="text-white opacity-75 fs-5 mb-0">Supervisez l'écosystème Admissio et gérez la santé du système en temps réel.</p>
+<div class="mesh-bg"></div>
+
+<div class="container-modern py-5">
+    <!-- Hero Section -->
+    <div class="recap-panel anim-up mb-5">
+        <div class="row align-items-center p-2 p-lg-4">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-8 fw-bold"><?php echo __t('PORTAIL ADMINISTRATION'); ?></span>
+                    <span class="text-muted small fw-bold"><i class="bi bi-circle-fill text-success me-1"></i> <?php echo __t('active_system'); ?></span>
+                </div>
+                <h1 class="display-4 fw-black mb-3 text-gray-900"><?php echo __t('Centre de Contrôle'); ?> <span class="text-grad">Admissio</span></h1>
+                <p class="fs-5 text-gray-600"><?php echo __t('Supervision globale et pilotage de l\'écosystème de recrutement.'); ?></p>
             </div>
-            <a href="maintenance.php" class="btn btn-light btn-lg d-none d-md-flex align-items-center gap-2 rounded-pill px-5 fw-bold text-primary shadow-sm position-relative z-1">
-                <i class="bi bi-gear-wide-connected"></i> Maintenance
+            <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                <a href="maintenance.php" class="btn-pro btn-pro-primary px-5 py-3 shadow-md">
+                    <i class="bi bi-cpu me-2"></i> <?php echo __t('MAINTENANCE SYSTÈME'); ?>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-6 col-lg-3 anim-up anim-delay-1">
+            <div class="glass-premium p-4 h-100 border-0 shadow-premium">
+                <div class="stat-icon-luminous mb-3 text-success"><i class="bi bi-building"></i></div>
+                <div class="h2 fw-black mb-0 text-gray-900"><?php echo $stats['gerants']['total']; ?></div>
+                <div class="small fw-bold text-muted text-uppercase mb-2"><?php echo __t('Recruteurs'); ?></div>
+                <div class="small text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> <?php echo $stats['gerants']['actifs']; ?> <?php echo __t('Actifs'); ?></div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 anim-up anim-delay-2">
+            <div class="glass-premium p-4 h-100 border-0 shadow-premium">
+                <div class="stat-icon-luminous mb-3 text-success"><i class="bi bi-people"></i></div>
+                <div class="h2 fw-black mb-0 text-gray-900"><?php echo $stats['candidats']; ?></div>
+                <div class="small fw-bold text-muted text-uppercase mb-2"><?php echo __t('Candidats'); ?></div>
+                <div class="small text-muted"><?php echo __t('Base de talents unifiée'); ?></div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 anim-up anim-delay-3">
+            <div class="glass-premium p-4 h-100 border-0 shadow-premium">
+                <div class="stat-icon-luminous mb-3 text-info"><i class="bi bi-briefcase"></i></div>
+                <div class="h2 fw-black mb-0 text-gray-900"><?php echo $stats['opportunites']; ?></div>
+                <div class="small fw-bold text-muted text-uppercase mb-2"><?php echo __t('Opportunités'); ?></div>
+                <div class="small text-muted"><?php echo __t('Postes publiés'); ?></div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3 anim-up anim-delay-4">
+            <div class="glass-premium p-4 h-100 border-0 shadow-premium">
+                <div class="stat-icon-luminous mb-3 text-warning"><i class="bi bi-file-earmark-check"></i></div>
+                <div class="h2 fw-black mb-0 text-gray-900"><?php echo $stats['candidatures']; ?></div>
+                <div class="small fw-bold text-muted text-uppercase mb-2"><?php echo __t('Dossiers'); ?></div>
+                <div class="small text-muted"><?php echo __t('Candidatures reçues'); ?></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row g-5 mb-5 reveal">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-premium p-4 rounded-4 bg-white h-100">
+                <h5 class="fw-black mb-4"><i class="bi bi-pie-chart text-success me-2"></i><?php echo __t('Répartition Utilisateurs'); ?></h5>
+                <div style="height: 300px;"><canvas id="rolesChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-premium p-4 rounded-4 bg-white h-100">
+                <h5 class="fw-black mb-4"><i class="bi bi-graph-up text-success me-2"></i><?php echo __t('Activité (10 jours)'); ?></h5>
+                <div style="height: 300px;"><canvas id="datesChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-12 mt-4">
+            <div class="card border-0 shadow-premium p-4 rounded-4 bg-white h-100">
+                <h5 class="fw-black mb-4"><i class="bi bi-bar-chart-fill text-success me-2"></i><?php echo __t('Top 5 des Opportunités'); ?></h5>
+                <div style="height: 350px;"><canvas id="topOppsChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Management Links -->
+    <div class="row g-4 reveal">
+        <div class="col-md-4">
+            <a href="liste_gerants.php" class="quick-action-card p-4 h-100">
+                <div class="icon-circle-box bg-light mb-3"><i class="bi bi-person-check"></i></div>
+                <h6 class="fw-bold mb-2 text-gray-900"><?php echo __t('Validation Recruteurs'); ?></h6>
+                <p class="text-muted small mb-0"><?php echo __t('Contrôlez les accès et les statuts des structures partenaires.'); ?></p>
             </a>
         </div>
-    </div>
-</div>
-
-<div class="row g-4 mb-5">
-    <!-- Stat 1: Gérants -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card h-100 p-4 animate__animated animate__fadeInUp animate__delay-1s">
-            <div class="stat-card-icon bg-indigo-50 text-primary">🏢</div>
-            <div class="display-6 fw-bold text-dark mb-1"><?php echo $stats['gerants']['total']; ?></div>
-            <div class="text-uppercase small fw-bold text-muted mb-3 ls-1">Gérants inscrits</div>
-            <div class="badge bg-success bg-opacity-10 text-success border border-success-subtle mb-4 w-fit">
-                <?php echo $stats['gerants']['actifs']; ?> Actifs
-            </div>
-            <div class="mt-auto">
-                <a href="liste_gerants.php" class="btn btn-light w-100 rounded-pill fw-bold text-primary border">Gérer</a>
-            </div>
+        <div class="col-md-4">
+            <a href="liste_opportunites.php" class="quick-action-card p-4 h-100">
+                <div class="icon-circle-box bg-light mb-3"><i class="bi bi-journals"></i></div>
+                <h6 class="fw-bold mb-2 text-gray-900"><?php echo __t('Catalogue National'); ?></h6>
+                <p class="text-muted small mb-0"><?php echo __t('Supervision globale de toutes les opportunités actives.'); ?></p>
+            </a>
         </div>
-    </div>
-    <!-- Stat 2: Candidats -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card h-100 p-4 animate__animated animate__fadeInUp animate__delay-2s">
-            <div class="stat-card-icon bg-blue-50 text-blue-600">🎓</div>
-            <div class="display-6 fw-bold text-dark mb-1"><?php echo $stats['candidats']; ?></div>
-            <div class="text-uppercase small fw-bold text-muted mb-4 ls-1">Candidats actifs</div>
-            <div class="mt-auto">
-                <a href="gestion_utilisateurs.php?role=candidat" class="btn btn-light w-100 rounded-pill fw-bold text-primary border">Superviser</a>
-            </div>
-        </div>
-    </div>
-    <!-- Stat 3: Offre -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card h-100 p-4 animate__animated animate__fadeInUp animate__delay-3s">
-            <div class="stat-card-icon bg-purple-50 text-purple-600">📄</div>
-            <div class="display-6 fw-bold text-dark mb-1"><?php echo $stats['offre']; ?></div>
-            <div class="text-uppercase small fw-bold text-muted mb-4 ls-1">Total Offre</div>
-            <div class="mt-auto">
-                <a href="liste_offres.php" class="btn btn-light w-100 rounded-pill fw-bold text-primary border">Voir tout</a>
-            </div>
-        </div>
-    </div>
-    <!-- Stat 4: Sessions -->
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card h-100 p-4 animate__animated animate__fadeInUp animate__delay-4s">
-            <div class="stat-card-icon bg-amber-50 text-amber-600">📅</div>
-            <div class="display-6 fw-bold text-dark mb-1"><?php echo $stats['sessions']['actives']; ?></div>
-            <div class="text-uppercase small fw-bold text-muted mb-4 ls-1">Sessions Actives</div>
-            <div class="mt-auto">
-                <a href="sessions_offres.php" class="btn btn-light w-100 rounded-pill fw-bold text-primary border">Planifier</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4 mb-5">
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-            <h5 class="fw-bold mb-4">Répartition des Rôles</h5>
-            <canvas id="rolesChart" height="250"></canvas>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white">
-            <h5 class="fw-bold mb-4">Croissance des Candidatures (10 jrs)</h5>
-            <canvas id="datesChart" height="250"></canvas>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-4 p-4 text-center h-100 transition-hover">
-            <div class="display-4 text-primary mb-3">🏢</div>
-            <h5 class="fw-bold">Demandes de Session</h5>
-            <p class="text-muted small">Validez et planifiez les sessions de candidatures demandées par les gérants pour leurs offre.</p>
-            <a href="demandes_session.php" class="btn btn-primary rounded-pill px-4 mt-auto">Ouvrir les demandes</a>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-4 p-4 text-center h-100 transition-hover">
-            <div class="display-4 text-danger mb-3">🛠️</div>
-            <h5 class="fw-bold">Maintenance Système</h5>
-            <p class="text-muted small">Purgez les documents obsolètes, gérez les logs et assurez-vous de la santé de la base de données.</p>
-            <a href="maintenance.php" class="btn btn-outline-danger rounded-pill px-4 mt-auto">Panel de contrôle</a>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-4 p-4 text-center h-100 transition-hover">
-            <div class="display-4 text-dark mb-3">👤</div>
-            <h5 class="fw-bold">Mon Profil Admin</h5>
-            <p class="text-muted small">Gérez vos accès personnels et vos informations de contact administrateur.</p>
-            <div class="d-flex justify-content-center gap-2 mt-auto">
-                <a href="modifier_profil.php" class="btn btn-light border btn-sm px-3 rounded-pill">Profil</a>
-                <a href="../auth/changer_mdp.php" class="btn btn-light border btn-sm px-3 rounded-pill">Mot de passe</a>
-            </div>
+        <div class="col-md-4">
+            <a href="sessions_concours.php" class="quick-action-card p-4 h-100">
+                <div class="icon-circle-box bg-light mb-3"><i class="bi bi-calendar-event"></i></div>
+                <h6 class="fw-bold mb-2 text-gray-900"><?php echo __t('Gestion des Sessions'); ?></h6>
+                <p class="text-muted small mb-0"><?php echo __t('Planification et suivi des périodes de recrutement.'); ?></p>
+            </a>
         </div>
     </div>
 </div>
@@ -146,43 +187,80 @@ include_header("Administration");
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // 1. Roles
-    const rawRoles = <?php echo json_encode($chart_roles ?? []); ?>;
-    const roleLabels = rawRoles.map(r => r.role.toUpperCase());
-    const roleCounts = rawRoles.map(r => parseInt(r.count));
-    const roleColors = ['#f59e0b', '#3b82f6', '#10b981'];
-
+    const rawRoles = <?php echo json_encode($chart_roles); ?>;
     if(rawRoles.length > 0) {
         new Chart(document.getElementById('rolesChart'), {
-            type: 'pie',
+            type: 'doughnut',
             data: {
-                labels: roleLabels,
-                datasets: [{ data: roleCounts, backgroundColor: roleColors, borderWidth: 0 }]
+                labels: rawRoles.map(r => r.role.toUpperCase()),
+                datasets: [{ 
+                    data: rawRoles.map(r => r.count), 
+                    backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'],
+                    borderWidth: 0
+                }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '75%', 
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } } 
+            }
         });
     }
 
-    // 2. Dates
-    const rawDates = <?php echo json_encode($chart_dates ?? []); ?>;
-    const dateLabels = rawDates.map(r => r.date);
-    const dateCounts = rawDates.map(r => parseInt(r.count));
-
+    const rawDates = <?php echo json_encode($chart_dates); ?>;
     if(rawDates.length > 0) {
         new Chart(document.getElementById('datesChart'), {
             type: 'line',
             data: {
-                labels: dateLabels,
+                labels: rawDates.map(r => r.date),
                 datasets: [{
-                    label: 'Nouvelles candidatures',
-                    data: dateCounts,
-                    borderColor: '#6366f1',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    label: 'Candidatures',
+                    data: rawDates.map(r => r.count),
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#2563eb'
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { beginAtZero: true, grid: { display: false } }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
+        });
+    }
+
+    const rawTopOpps = <?php echo json_encode($chart_top_opps); ?>;
+    if(rawTopOpps.length > 0) {
+        new Chart(document.getElementById('topOppsChart'), {
+            type: 'bar',
+            data: {
+                labels: rawTopOpps.map(r => r.titre.length > 30 ? r.titre.substring(0,30) + '...' : r.titre),
+                datasets: [{
+                    label: 'Candidatures',
+                    data: rawTopOpps.map(r => r.total_candidatures),
+                    backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                    borderColor: '#198754',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
         });
     }
 });
@@ -190,5 +268,5 @@ document.addEventListener("DOMContentLoaded", function() {
 
 <?php 
 include_footer();
-exit();
 ?>
+

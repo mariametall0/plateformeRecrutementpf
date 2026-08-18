@@ -16,7 +16,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT c.id, co.titre AS offre_titre, c.statut
         FROM candidatures c
-        JOIN offres co ON c.id_offre = co.id
+        JOIN concours co ON c.id_concours = co.id
         WHERE c.id = ? AND c.id_candidat = ?
     ");
     $stmt->execute([$id_candidature, $id_candidat]);
@@ -119,22 +119,22 @@ try {
 
     include_header("Mes documents");
     ?>
-    <div style="max-width: 900px; margin: 0 auto;">
-        <header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start;">
+    <div class="page-container">
+        <div class="page-header">
             <div>
                 <h1>Documents du dossier</h1>
-                <p style="color: var(--text-muted);">Candidature pour : <strong><?php echo htmlspecialchars($candidature['offre_titre']); ?></strong></p>
+                <p class="text-muted mb-0">Candidature pour : <strong><?php echo htmlspecialchars($candidature['offre_titre']); ?></strong></p>
             </div>
-            <a href="mes_candidatures.php" class="btn" style="width: auto; background: var(--border);">← Mes candidatures</a>
-        </header>
+            <a href="mes_candidatures.php" class="btn" style="background: var(--border);">← Mes candidatures</a>
+        </div>
 
         <div class="stat-card">
-            <h3 style="margin-bottom: 1.5rem;">📁 Gérer mes pièces jointes</h3>
+            <h3 class="mb-4">📁 Gérer mes pièces jointes</h3>
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="id" value="<?php echo $id_candidature; ?>">
 
-                <div style="display: flex; flex-direction: column; gap: 2rem;">
+                <div class="form-section-group">
                     <?php 
                     $fields = ['cv' => 'CV', 'lettre' => 'Lettre de motivation', 'diplome' => 'Diplôme'];
                     $db_keys = ['cv' => 'cv', 'lettre' => 'lettre_motivation', 'diplome' => 'diplome'];
@@ -143,26 +143,27 @@ try {
                         $db_key = $db_keys[$input];
                         $has_file = isset($docs_map[$db_key]);
                     ?>
-                        <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--background);">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                                <label class="form-label" style="margin: 0; font-size: 1rem; font-weight: 700;"><?php echo $label; ?></label>
+                        <div class="document-section">
+                            <div class="document-header">
+                                <label class="form-label document-label"><?php echo $label; ?></label>
                                 <?php if ($has_file): ?>
-                                    <span style="color: var(--success); font-weight: 600; font-size: 0.875rem;">✓ En ligne</span>
+                                    <span class="document-status">✓ En ligne</span>
                                 <?php endif; ?>
                             </div>
-                            <div style="display: flex; gap: 1rem;">
+                            <div class="document-form">
                                 <input type="file" name="<?php echo $input; ?>" class="form-control" style="background: white;">
                                 <?php if ($has_file): ?>
-                                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                        <a href="../uploads/<?php echo $docs_map[$db_key]['nom_fichier']; ?>" target="_blank" class="btn" style="width: auto; padding: 0.4rem 0.8rem; background: var(--background);">👁️ Voir</a>
-                                        <a href="?id=<?php echo $id_candidature; ?>&action=download&file=<?php echo $docs_map[$db_key]['nom_fichier']; ?>" class="btn" style="width: auto; padding: 0.4rem 0.8rem; background: var(--primary); color: white;">📥 Télécharger</a>
+                                    <div class="document-actions">
+                                        <a href="../uploads/<?php echo $docs_map[$db_key]['nom_fichier']; ?>" target="_blank" class="btn" style="padding: 0.4rem 0.8rem; background: var(--background);">👁️ Voir</a>
+                                        <a href="?id=<?php echo $id_candidature; ?>&action=download&file=<?php echo $docs_map[$db_key]['nom_fichier']; ?>" class="btn" style="padding: 0.4rem 0.8rem; background: var(--primary); color: white;">📥 Télécharger</a>
                                     </div>
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
+                    <p class="small text-muted mt-2">Formats acceptés : PDF, DOC, JPG, PNG. Taille maximale : 5 Mo par fichier.</p>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 2rem;">Enregistrer</button>
+                <button type="submit" class="btn btn-success mt-4">Enregistrer</button>
             </form>
         </div>
     </div>

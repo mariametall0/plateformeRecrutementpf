@@ -1,50 +1,44 @@
 <?php
+declare(strict_types=1);
+
+/**
+ * activer_gerant.php – Activation sécurisée d'un compte recruteur.
+ */
 require_once "../includes/layout.php";
 
 // Protection admin
 check_role('admin');
 
-$input = json_decode(file_get_contents("php://input"), true);
-$id = (int)($input["id"] ?? $_GET["id"] ?? 0);
+header('Content-Type: application/json');
 
-if ($id > 0) {
-    try {
-        $stmt = $pdo->prepare("UPDATE utilisateurs SET statut = 'actif' WHERE id = ? AND role = 'gerant'");
-        $stmt->execute([$id]);
-
-        if ($stmt->rowCount() > 0) {
-            $msg = 'Compte gérant activé avec succès.';
-            if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-                send_json(['success' => true, 'message' => $msg]);
-            } else {
-                $_SESSION['success_message'] = $msg;
-                header("Location: liste_gerants.php");
-            }
-        } else {
-            $err = "Gérant non trouvé ou déjà actif.";
-            if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-                send_error($err, 404);
-            } else {
-                $_SESSION['error_message'] = $err;
-                header("Location: liste_gerants.php");
-            }
-        }
-    } catch (PDOException $e) {
-        $msg = "Erreur base de données : " . $e->getMessage();
-        if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-            send_error($msg, 500);
-        } else {
-            $_SESSION['error_message'] = $msg;
-            header("Location: liste_gerants.php");
-        }
+try {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        throw new Exception("Méthode non autorisée.", 405);
     }
-} else {
-    $err = "ID gérant invalide.";
-    if (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) {
-        send_error($err);
+
+    $input = json_decode(file_get_contents("php://input"), true);
+    
+    // Vérification CSRF
+    $token = $input['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
+        throw new Exception("Erreur de sécurité : Jeton CSRF invalide.", 403);
+    }
+
+    $id = (int)($input["id"] ?? 0);
+    if ($id <= 0) {
+        throw new Exception("ID gérant invalide.");
+    }
+
+    $stmt = $pdo->prepare("UPDATE utilisateurs SET statut = 'actif' WHERE id = ? AND role = 'gerant'");
+    $stmt->execute([$id]);
+
+    if ($stmt->rowCount() > 0) {
+        send_json(['success' => true, 'message' => 'Compte recruteur activé avec succès.']);
     } else {
-        $_SESSION['error_message'] = $err;
-        header("Location: liste_gerants.php");
+        throw new Exception("Recruteur non trouvé ou déjà actif.");
     }
+
+} catch (Exception $e) {
+    error_log("ACTIVATE ERROR: " . $e->getMessage());
+    send_json(['error' => $e->getMessage()], (int)($e->getCode() ?: 400));
 }
-exit();

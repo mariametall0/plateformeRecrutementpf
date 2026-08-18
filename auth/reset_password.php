@@ -46,34 +46,48 @@ try {
 
     include_header("Réinitialisation");
     ?>
-    <div class="auth-wrapper py-5 d-flex align-items-center justify-content-center bg-light vh-100">
-        <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5" style="max-width: 500px; width: 100%;">
-            <div class="text-center mb-4">
-                <div class="display-4 text-primary mb-2">🔑</div>
-                <h2 class="fw-bold h4">Nouveau mot de passe</h2>
-                <p class="text-muted small">Veuillez définir votre nouvel accès sécurisé.</p>
+    <div class="reset-password-v2">
+        <div class="reset-card">
+            <a href="login.php?role=candidat" class="back-link">
+                <i class="bi bi-arrow-left"></i> Retour
+            </a>
+            
+            <div class="reset-icon">
+                <i class="bi bi-key-fill"></i>
             </div>
+            
+            <h2 class="reset-title">Nouveau mot de passe</h2>
+            <p class="reset-subtitle">Veuillez définir votre nouvel accès sécurisé.</p>
+            
             <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase">Nouveau mot de passe</label>
-                    <div class="input-group">
-                        <input type="password" name="password" id="reset_password" class="form-control bg-light py-2" required autofocus placeholder="Minimum 8 caractères">
-                        <button class="btn btn-outline-secondary border-0 bg-light" type="button" onclick="togglePassword('reset_password', this)">
+                <div class="input-field">
+                    <label class="form-label">
+                        <i class="bi bi-lock"></i> Nouveau mot de passe
+                    </label>
+                    <div class="input-group form-control-pro">
+                        <i class="bi bi-shield-lock"></i>
+                        <input type="password" name="password" id="reset_password" required autofocus placeholder="Minimum 8 caractères">
+                        <button class="btn border-0 p-0 text-muted" type="button" onclick="togglePassword('reset_password', this)">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
                 </div>
-                <div class="mb-4">
-                    <label class="form-label fw-bold small text-uppercase">Confirmer</label>
-                    <div class="input-group">
-                        <input type="password" name="confirm_password" id="confirm_password" class="form-control bg-light py-2" required placeholder="Répéter le mot de passe">
-                        <button class="btn btn-outline-secondary border-0 bg-light" type="button" onclick="togglePassword('confirm_password', this)">
+                
+                <div class="input-field">
+                    <label class="form-label">
+                        <i class="bi bi-check-circle"></i> Confirmer
+                    </label>
+                    <div class="input-group form-control-pro">
+                        <i class="bi bi-shield-check"></i>
+                        <input type="password" name="confirm_password" id="confirm_password" required placeholder="Répéter le mot de passe">
+                        <button class="btn border-0 p-0 text-muted" type="button" onclick="togglePassword('confirm_password', this)">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-pill shadow-sm border-0">
-                    Changer le mot de passe
+                
+                <button type="submit" class="btn-pro btn-pro-primary reset-button">
+                    <i class="bi bi-send"></i> Changer le mot de passe
                 </button>
             </form>
         </div>

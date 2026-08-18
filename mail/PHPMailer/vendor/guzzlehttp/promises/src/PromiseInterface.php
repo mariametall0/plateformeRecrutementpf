@@ -89,3 +89,4 @@ interface PromiseInterface
      */
     public function wait(bool $unwrap = true);
 }
+

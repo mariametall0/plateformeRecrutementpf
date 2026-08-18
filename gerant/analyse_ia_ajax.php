@@ -1,90 +1,87 @@
 <?php
+declare(strict_types=1);
+
 /**
- * analyse_ia_ajax.php – Point de terminaison AJAX pour l'analyse IA.
+ * analyse_ia_ajax.php – Point de terminaison AJAX pour l'analyse IA (côté Gérant).
  */
 
 require_once "../includes/layout.php";
-require_once "../includes/pdf_helper.php";
-require_once "../includes/ai_helper.php";
+require_once "../includes/analysis_helper.php";
+
+header('Content-Type: application/json');
 
 // Protection gérant
 check_role('gerant');
 
-$id_candidature = (int)($_POST['id_candidature'] ?? 0);
-
-if ($id_candidature <= 0) {
-    send_json(['error' => "ID de candidature invalide."], 400);
-}
-
 try {
-    // 1. Récupérer les infos du offre et de la candidature
+    if ($_SERVER["REQUEST_METHOD"] === "POST") {
+        verify_csrf_token();
+    }
+
+    $id_candidature = (int)($_POST['id_candidature'] ?? 0);
+    if ($id_candidature <= 0) {
+        throw new Exception("ID de candidature invalide.");
+    }
+
+    // 1. Récupérer les infos du concours et de la candidature
     $stmt = $pdo->prepare("
         SELECT co.titre AS job_title, co.description AS job_desc, u.nom AS candidat_nom, c.id_candidat
         FROM candidatures c
-        JOIN offres co ON c.id_offre = co.id
+        JOIN concours co ON c.id_concours = co.id
         JOIN utilisateurs u ON c.id_candidat = u.id
         WHERE c.id = ?
     ");
     $stmt->execute([$id_candidature]);
-    $info = $stmt->fetch(PDO::FETCH_ASSOC);
+    $info = $stmt->fetch();
 
     if (!$info) {
-        send_json(['error' => "Candidature non trouvée."], 404);
+        throw new Exception("Candidature non trouvée ou liée à une offre inexistante.");
     }
 
-    // 2. Trouver le CV (format PDF attendu)
-    $stmt_doc = $pdo->prepare("SELECT nom_fichier FROM dossiers WHERE id_candidature = ? AND (type_document = 'cv' OR type_document = 'curriculum_vitae') LIMIT 1");
-    $stmt_doc->execute([$id_candidature]);
-    $cv = $stmt_doc->fetchColumn();
-
-    if (!$cv) {
-        send_json(['error' => "Aucun CV trouvé pour cette candidature."], 404);
-    }
-
-    $cv_path = "../uploads/" . $cv;
-    if (!file_exists($cv_path)) {
-        send_json(['error' => "Fichier CV introuvable sur le serveur."], 404);
-    }
-
-    // 3. Extraire le texte du PDF
-    $cv_text = extract_text_from_pdf($cv_path);
-    // 4. Récupérer aussi le CV Numérique (Structuré) pour enrichir l'analyse
-    $id_candidat = $info['id_candidat'];
-    $structured_data = "";
+    // 2. Récupérer les données du CV Numérique (Structuré)
+    $id_candidat = (int)$info['id_candidat'];
+    $cv_parts = [];
     
-    $stmt_bio = $pdo->prepare("SELECT bio FROM profils_candidats WHERE id_utilisateur = ?");
-    $stmt_bio->execute([$id_candidat]);
-    $bio = $stmt_bio->fetchColumn();
-    if ($bio) $structured_data .= "\nBIO/PRÉSENTATION : $bio\n";
+    $bio = $pdo->prepare("SELECT bio FROM profils_candidats WHERE id_utilisateur = ?");
+    $bio->execute([$id_candidat]);
+    $cv_parts[] = "BIO: " . ($bio->fetchColumn() ?: "Non renseignée");
 
     $stmt_f = $pdo->prepare("SELECT diplome, etablissement, date_debut, date_fin FROM cv_formations WHERE id_utilisateur = ?");
     $stmt_f->execute([$id_candidat]);
-    foreach ($stmt_f->fetchAll(PDO::FETCH_ASSOC) as $f) {
-        $structured_data .= "FORMATION : {$f['diplome']} à {$f['etablissement']} ({$f['date_debut']} - {$f['date_fin']})\n";
+    foreach ($stmt_f->fetchAll() as $f) {
+        $cv_parts[] = "FORMATION: {$f['diplome']} ({$f['etablissement']}) [{$f['date_debut']} - {$f['date_fin']}]";
     }
 
-    $stmt_e = $pdo->prepare("SELECT poste, entreprise, date_debut, date_fin, en_poste FROM cv_experiences WHERE id_utilisateur = ?");
+    $stmt_e = $pdo->prepare("SELECT poste, entreprise, date_debut, date_fin, en_poste, description FROM cv_experiences WHERE id_utilisateur = ?");
     $stmt_e->execute([$id_candidat]);
-    foreach ($stmt_e->fetchAll(PDO::FETCH_ASSOC) as $e) {
-        $structured_data .= "EXPÉRIENCE : {$e['poste']} chez {$e['entreprise']} ({$e['date_debut']} - " . ($e['en_poste'] ? 'Présent' : $e['date_fin']) . ")\n";
+    foreach ($stmt_e->fetchAll() as $e) {
+        $status = $e['en_poste'] ? 'Présent' : ($e['date_fin'] ?: 'Non spécifié');
+        $cv_parts[] = "EXPÉRIENCE: {$e['poste']} ({$e['entreprise']}) [{$e['date_debut']} - {$status}]: {$e['description']}";
     }
 
-    // Fusionner les données
-    $full_cv_text = "--- DONNÉES PDF EXTRAITES ---\n$cv_text\n\n--- DONNÉES STRUCTURÉES CANDIDAT ---\n$structured_data";
+    $stmt_s = $pdo->prepare("SELECT nom, type FROM cv_competences WHERE id_utilisateur = ?");
+    $stmt_s->execute([$id_candidat]);
+    foreach ($stmt_s->fetchAll() as $s) {
+        $cv_parts[] = "SKILL: {$s['nom']} ({$s['type']})";
+    }
 
-    // 5. Appeler Gemini
-    $gemini = new GeminiClient();
-    $analysis = $gemini->analyze_cv($full_cv_text, $info['job_title'], $info['job_desc']);
+    $full_profile_text = implode("\n", $cv_parts);
+
+    // 3. Appel à l'Expert IA
+    $analysis_client = new AnalysisClient();
+    $analysis = $analysis_client->analyze_candidature(
+        $full_profile_text, 
+        (string)$info['job_title'], 
+        (string)$info['job_desc']
+    );
 
     if (isset($analysis['error'])) {
-        send_json(['error' => $analysis['error']], 500);
+        throw new Exception($analysis['error']);
     }
-
-    // Optionnel : Sauvegarder l'analyse en cache
-    // $pdo->prepare("UPDATE candidatures SET analyse_ia = ? WHERE id = ?")->execute([json_encode($analysis), $id_candidature]);
 
     send_json(['success' => true, 'analysis' => $analysis]);
 
 } catch (Exception $e) {
-    send_json(['error' => "Erreur serveur : " . $e->getMessage()], 500);
+    error_log("IA ANALYSIS ERROR: " . $e->getMessage());
+    send_json(['success' => false, 'error' => $e->getMessage()], 400);
 }

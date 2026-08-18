@@ -1,74 +1,159 @@
+/* ============================================================
+   ADMISSIO Design System v4.0 - Main entry point
+   ============================================================ */
+@import url('./admissio_design.css?v=3');
+
 :root {
-    --p-indigo: #4f46e5;
-    --p-violet: #7c3aed;
-    --p-blue: #0ea5e9;
-    --p-emerald: #10b981;
-    --white: #ffffff;
-    --slate-50: #f8fafc;
-    --slate-100: #f1f5f9;
-    --slate-200: #e2e8f0;
-    --slate-400: #94a3b8;
-    --slate-600: #475569;
-    --slate-900: #0f172a;
+  --cv-primary: #0f5132;
+  --cv-secondary: #198754;
+  --cv-bg: #f8fafc;
+  --cv-card: #ffffff;
+  --cv-text: #0f172a;
+  --cv-muted: #64748b;
+  --cv-border: rgba(0, 0, 0, 0.07);
+  --cv-accent: #20c997;
+  --bs-primary: #198754;
+  --bs-primary-rgb: 25, 135, 84;
 }
 
-/* --- Base --- */
-body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+.cv-section-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-xs);
 }
 
-/* --- Glassmorphism --- */
-.glass {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+.cv-section-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: .875rem;
+  border-bottom: 1px solid var(--border);
 }
 
-/* --- Animations --- */
-.hover-scale { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-.hover-scale:hover { transform: scale(1.02); }
-
-.hover-glow:hover {
-    box-shadow: 0 0 20px rgba(79, 70, 229, 0.3) !important;
+.cv-section-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
 }
 
-/* --- Buttons Raffinés --- */
-.btn-premium {
-    background: linear-gradient(135deg, var(--p-indigo) 0%, var(--p-violet) 100%);
-    color: white;
-    border: none;
-    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.2);
-    transition: all 0.3s ease;
-}
-.btn-premium:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(79, 70, 229, 0.35);
-    color: white;
+.cv-section-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--dark);
 }
 
-/* --- Typography --- */
-.font-outfit { font-family: 'Outfit', sans-serif; }
-.ls-1 { letter-spacing: 0.05em; }
-
-/* --- Stats Cards --- */
-.stat-card-premium {
-    background: white;
-    padding: 2rem;
-    border-radius: 1.5rem;
-    border: 1px solid var(--slate-100);
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+.timeline-item {
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 1.5rem;
 }
 
-/* --- Forms Custom --- */
-.form-floating > .form-control:focus ~ label::after,
-.form-floating > .form-control:not(:placeholder-shown) ~ label::after {
-    background-color: transparent !important;
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  background: var(--blue);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(15, 81, 50, .15);
 }
 
-/* Scrollbar Style */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--slate-50); }
-::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+.timeline-item::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 20px;
+  width: 2px;
+  bottom: -16px;
+  background: var(--border);
+}
+
+.timeline-item:last-child::after {
+  display: none;
+}
+
+.timeline-title {
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: .15rem;
+}
+
+.timeline-subtitle {
+  font-size: .82rem;
+  color: var(--muted);
+}
+
+.timeline-period {
+  font-size: .78rem;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.timeline-desc {
+  font-size: .88rem;
+  color: var(--gray-600);
+  line-height: 1.6;
+  margin-top: .5rem;
+}
+
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: var(--blue-soft);
+  border-radius: var(--r-full);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--blue);
+  margin: 3px;
+}
+
+.skill-chip .delete-skill {
+  cursor: pointer;
+  opacity: .5;
+  font-size: .75rem;
+  transition: opacity .2s;
+}
+
+.skill-chip .delete-skill:hover {
+  opacity: 1;
+  color: var(--rose);
+}
+
+.diagnostic-score-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  border: 3px solid #fff;
+}
+
+.diagnostic-glass-card {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  color: #fff;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 81, 50, .3);
+}
+}

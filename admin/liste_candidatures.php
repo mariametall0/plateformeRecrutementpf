@@ -6,7 +6,7 @@ check_role('admin');
 
 $search        = trim($_GET["search"] ?? "");
 $filtre_statut = $_GET["statut"] ?? "";
-$filtre_offre = $_GET["id_offre"] ?? "";
+$filtre_concours = $_GET["id_concours"] ?? "";
 
 try {
     $sql = "
@@ -16,12 +16,12 @@ try {
             c.date_candidature,
             u.nom  AS candidat_nom,
             u.email AS candidat_email,
-            co.titre AS offre_titre,
-            co.id AS offre_id,
+            co.titre AS concours_titre,
+            co.id AS concours_id,
             ug.nom AS gerant_nom
         FROM candidatures c
         JOIN utilisateurs u  ON c.id_candidat  = u.id
-        JOIN offres co     ON c.id_offre  = co.id
+        JOIN concours co     ON c.id_concours  = co.id
         JOIN utilisateurs ug ON co.id_gerant   = ug.id
         WHERE 1=1
     ";
@@ -36,9 +36,9 @@ try {
         $sql .= " AND c.statut = ?";
         $params[] = $filtre_statut;
     }
-    if ($filtre_offre !== "") {
+    if ($filtre_concours !== "") {
         $sql .= " AND co.id = ?";
-        $params[] = (int)$filtre_offre;
+        $params[] = (int)$filtre_concours;
     }
     $sql .= " ORDER BY c.date_candidature DESC";
 
@@ -86,7 +86,7 @@ include_header("Toutes les Candidatures");
                         </select>
                     </div>
                     <div class="col-12 col-md-6 col-xl-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-info text-white btn-lg flex-grow-1 fw-bold shadow-sm px-4">Filtrer</button>
+                        <button type="submit" class="btn btn-success text-white btn-lg flex-grow-1 fw-bold shadow-sm px-4">Filtrer</button>
                         <a href="liste_candidatures.php" class="btn btn-light btn-lg border px-3" title="RAZ">
                             <i class="bi bi-eraser"></i>
                         </a>
@@ -104,7 +104,7 @@ include_header("Toutes les Candidatures");
                     <thead class="bg-light text-muted text-uppercase small py-3">
                         <tr>
                             <th class="ps-4 py-3 border-0">Identité Candidat</th>
-                            <th class="py-3 border-0">Offre Cible</th>
+                            <th class="py-3 border-0">Opportunité Cible</th>
                             <th class="py-3 border-0 text-center">Date de dépôt</th>
                             <th class="py-3 border-0 text-center col-statut">État final</th>
                         </tr>
@@ -132,7 +132,7 @@ include_header("Toutes les Candidatures");
                                         </div>
                                     </td>
                                     <td class="py-4">
-                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($cand['offre_titre']); ?></div>
+                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($cand['concours_titre']); ?></div>
                                         <div class="small text-muted mt-1 d-flex align-items-center gap-1">
                                             <i class="bi bi-person-badge opacity-50"></i> <?php echo htmlspecialchars($cand['gerant_nom']); ?>
                                         </div>

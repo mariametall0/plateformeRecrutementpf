@@ -3,5 +3,5 @@
  * ai_config.php – Configuration pour l'IA Gemini.
  */
 
-define('GEMINI_API_KEY', 'AIzaSyA3aU_NeRBWyhUzO66NIxesJhlw0O4W9Xk');
-define('GEMINI_MODEL', 'gemini-1.5-flash'); // Plus stable que 'latest' lors des pics de charge
+define('GEMINI_API_KEY', 'AIzaSyCppiqjSMx1pJLW2Vp1UdpyhF8bxameZSQ');
+define('GEMINI_MODEL', 'gemini-2.0-flash'); 

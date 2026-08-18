@@ -6,19 +6,19 @@ check_role('gerant');
 
 $id_gerant = $_SESSION["id"];
 
-$id_offre = (int)($_GET["id"] ?? $_POST["id"] ?? 0);
-if ($id_offre <= 0) {
-    send_error("ID de offre invalide.");
+$id_concours = (int)($_GET["id"] ?? $_POST["id"] ?? 0);
+if ($id_concours <= 0) {
+    send_error("ID de concours invalide.");
 }
 
-// Récupérer les détails du offre
+// Récupérer les détails du concours
 try {
-    $stmt = $pdo->prepare("SELECT * FROM offres WHERE id = ? AND id_gerant = ?");
-    $stmt->execute([$id_offre, $id_gerant]);
-    $offre = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT * FROM concours WHERE id = ? AND id_gerant = ?");
+    $stmt->execute([$id_concours, $id_gerant]);
+    $concours = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$offre) {
-        send_error("Offre non trouvé ou accès refusé.", 404);
+    if (!$concours) {
+        send_error("Concours non trouvé ou accès refusé.", 404);
     }
 
     // POST : Prolonger la clôture
@@ -31,11 +31,11 @@ try {
 
         if (empty($date_cloture)) {
             send_error("La nouvelle date de clôture est obligatoire.");
-        } elseif ($date_cloture <= $offre['date_cloture']) {
-            send_error("La nouvelle date de clôture doit être supérieure à la date actuelle (" . format_date($offre['date_cloture']) . ").");
+        } elseif ($date_cloture <= $concours['date_cloture']) {
+            send_error("La nouvelle date de clôture doit être supérieure à la date actuelle (" . format_date($concours['date_cloture']) . ").");
         } else {
-            $pdo->prepare("UPDATE offres SET date_cloture = ?, heure_cloture = ? WHERE id = ?")
-                ->execute([$date_cloture, $heure_cloture, $id_offre]);
+            $pdo->prepare("UPDATE concours SET date_cloture = ?, heure_cloture = ? WHERE id = ?")
+                ->execute([$date_cloture, $heure_cloture, $id_concours]);
             
             send_json(['success' => true, 'message' => "Date de clôture prolongée avec succès."]);
         }
@@ -45,11 +45,11 @@ try {
     if ($_SERVER["REQUEST_METHOD"] === "GET") {
         send_json([
             'success' => true,
-            'offre' => [
-                'titre' => $offre['titre'],
-                'date_cloture' => $offre['date_cloture'],
-                'heure_cloture' => $offre['heure_cloture'],
-                'date_cloture_fmt' => format_date($offre['date_cloture']) . ($offre['heure_cloture'] ? ' à ' . substr($offre['heure_cloture'], 0, 5) : '')
+            'concours' => [
+                'titre' => $concours['titre'],
+                'date_cloture' => $concours['date_cloture'],
+                'heure_cloture' => $concours['heure_cloture'],
+                'date_cloture_fmt' => format_date($concours['date_cloture']) . ($concours['heure_cloture'] ? ' à ' . substr($concours['heure_cloture'], 0, 5) : '')
             ]
         ]);
     }

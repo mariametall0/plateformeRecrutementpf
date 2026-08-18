@@ -4,8 +4,8 @@ require_once "includes/layout.php";
 include_header("Conditions Générales d'Utilisation");
 ?>
 <div class="container py-5 mt-5">
-    <div class="p-5 bg-white shadow-sm rounded-4 border-top border-primary border-5">
-        <h1 class="fw-black mb-4"><i class="bi bi-file-text text-primary me-2"></i> Conditions Générales d'Utilisation (CGU)</h1>
+    <div class="p-5 bg-white shadow-sm rounded-4 border-top border-success border-5">
+        <h1 class="fw-black mb-4"><i class="bi bi-file-text text-success me-2"></i> Conditions Générales d'Utilisation (CGU)</h1>
         
         <h4 class="fw-bold mt-4 text-dark">Objet</h3>
         <p class="text-secondary lh-lg">Les présentes CGU ont pour objet de définir les modalités de mise à disposition des services du site Admissio et les conditions d'utilisation du service par l'Utilisateur.</p>
@@ -18,3 +18,4 @@ include_header("Conditions Générales d'Utilisation");
     </div>
 </div>
 <?php include_footer(); ?>
+

@@ -68,31 +68,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 include_header("Mot de passe oublié");
 ?>
 
-<div class="auth-wrapper position-relative overflow-hidden min-vh-100 d-flex align-items-center" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);">
+<div class="auth-wrapper">
     <!-- Formes d'arrière-plan décoratives -->
-    <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-warning opacity-10 blur-custom" style="width: 600px; height: 600px; filter: blur(80px);"></div>
-    <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-primary opacity-10 blur-custom" style="width: 400px; height: 400px; filter: blur(60px);"></div>
+    <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-warning opacity-10 blur-custom" style="width: 600px; height: 600px;"></div>
+    <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-success opacity-10 blur-custom" style="width: 400px; height: 400px;"></div>
 
     <div class="container py-5 position-relative z-1 d-flex justify-content-center">
-        <div class="card border-0 shadow-lg rounded-5 p-4 p-md-5 animate__animated animate__zoomIn bg-white bg-opacity-75 backdrop-blur border-top border-warning border-5" style="max-width: 450px; width: 100%; border-width: 5px 0 0 0 !important;">
+        <div class="card border-0 shadow-lg rounded-5 p-4 p-md-5 animate__animated animate__zoomIn bg-white bg-opacity-75 backdrop-blur" style="max-width: 450px; width: 100%;">
             <div class="text-center mb-4">
-                <div class="mx-auto bg-warning bg-opacity-10 text-warning p-3 rounded-circle mb-3 icon-hover-bounce" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                <div class="mx-auto bg-warning bg-opacity-10 text-warning p-3 rounded-circle mb-3 icon-hover-bounce d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
                     <i class="bi bi-key-fill fs-2"></i>
                 </div>
-                <h2 class="fw-black h3 mb-2" style="font-family: 'Outfit', sans-serif;">Récupération</h2>
+                <h2 class="fw-black h3 mb-2">Récupération</h2>
                 <p class="text-muted small">Entrez votre adresse email pour recevoir un lien de réinitialisation sécurisé.</p>
             </div>
 
             <form method="POST">
                 <div class="mb-4 mt-2">
-                    <label class="form-label fw-bold small text-uppercase text-muted mb-2" style="letter-spacing: 1px; font-size: 0.75rem;">Adresse Email</label>
+                    <label class="form-label fw-bold small text-uppercase text-muted mb-2">Adresse Email</label>
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-envelope"></i></span>
                         <input type="email" name="email" class="form-control bg-white border-start-0 ps-0 py-2" placeholder="exemple@mail.com" required>
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-warning w-100 py-3 fw-bold rounded-pill text-dark hover-lift-lg btn-lg fs-6 custom-glow shadow-sm mt-2" style="box-shadow: 0 0 15px rgba(255, 193, 7, 0.4) !important;">
+                <button type="submit" class="btn btn-warning w-100 py-3 fw-bold rounded-pill text-dark hover-lift-lg btn-lg fs-6 shadow-sm mt-2">
                     <i class="bi bi-send me-2"></i> Envoyer le lien
                 </button>
             </form>
@@ -105,16 +105,6 @@ include_header("Mot de passe oublié");
         </div>
     </div>
 </div>
-
-<style>
-/* Utilities dynamiques */
-.hover-lift-lg { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.hover-lift-lg:hover { transform: translateY(-3px); box-shadow: 0 1rem 3rem rgba(0,0,0,.15)!important; }
-.backdrop-blur { backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
-.icon-hover-bounce { transition: transform 0.3s ease; }
-.icon-hover-bounce:hover { transform: translateY(-5px) scale(1.05); }
-.fw-black { font-weight: 900; }
-</style>
 
 <?php 
 include_footer();

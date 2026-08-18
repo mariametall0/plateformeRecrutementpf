@@ -1,170 +1,265 @@
 <?php
+declare(strict_types=1);
+
+/**
+ * login.php - Connexion securisee a la plateforme Admissio.
+ */
 require_once "../includes/layout.php";
 
-// Sécurité supplémentaire pour la session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Initialisation robuste du rôle (évite les warnings si $role n'est pas défini ou null)
 $rawRole = $_GET["role"] ?? $_POST["role"] ?? $_SESSION["role"] ?? "";
-$role = is_string($rawRole) ? trim($rawRole) : "";
-if ($role === "" || !in_array($role, ["candidat", "gerant", "admin"], true)) {
+$role = is_string($rawRole) ? trim($rawRole) : "candidat";
+if (!in_array($role, ["candidat", "gerant", "admin"], true)) {
     $role = "candidat";
 }
 
-// Token CSRF si manquant
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-error_log("DEBUG LOGIN: role=" . ($role ?? 'NULL') . ", session_id=" . session_id());
-error_log("DEBUG LOGIN: session_csrf=" . ($_SESSION['csrf_token'] ?? 'NULL'));
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Vérifier le token CSRF (formulaires & JSON)
-    if (function_exists('verify_csrf_token')) {
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    try {
         verify_csrf_token();
-    }
-
-    // Supporte à la fois les formulaires HTML standards et les requêtes JSON (AJAX)
-    $input = json_decode(file_get_contents("php://input"), true) ?? [];
-    if (!is_array($input)) {
-        $input = [];
-    }
-
-    $email    = trim($input["email"] ?? $_POST["email"] ?? "");
-    $password = $input["password"] ?? $_POST["password"] ?? "";
-
-    if (empty($email) || empty($password)) {
-        send_error("Email et mot de passe requis.");
-    } else {
-        $stmt = $pdo->prepare("SELECT * FROM utilisateurs WHERE email = ? AND role = ?");
+        $email    = trim((string)($_POST["email"] ?? ""));
+        $password = (string)($_POST["password"] ?? "");
+        if (empty($email) || empty($password)) {
+            throw new Exception("Email et mot de passe requis.");
+        }
+        $stmt = $pdo->prepare("
+            SELECT u.*, p.photo_path AS candidate_photo, u.photo_path AS user_photo 
+            FROM utilisateurs u 
+            LEFT JOIN profils_candidats p ON u.id = p.id_utilisateur 
+            WHERE u.email = ? AND u.role = ?
+        ");
         $stmt->execute([$email, $role]);
         $user = $stmt->fetch();
-
-        if ($user && password_verify($password, $user["mot_de_passe"])) {
-            if (in_array($role, ['gerant', 'admin']) && $user['statut'] !== 'actif') {
-                send_error("Compte inactif. Contactez l'administrateur.", 403);
-            } else {
-                session_regenerate_id(true);
-                $_SESSION["id"]   = $user["id"];
-                $_SESSION["nom"]  = $user["nom"];
-                $_SESSION["role"] = $user["role"];
-                $_SESSION["email"] = $user["email"];
-
-                if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
-                    $redirect = $_SESSION['redirect_after_login'] ?? "../{$user['role']}/dashboard.php";
-                    unset($_SESSION['redirect_after_login']);
-                    send_json([
-                        'success' => true,
-                        'message' => 'Connexion réussie.',
-                        'user' => [
-                            'id' => $user['id'],
-                            'nom' => $user['nom'],
-                            'role' => $user['role'],
-                            'email' => $user['email']
-                        ],
-                        'redirect_hint' => $redirect
-                    ]);
-                } else {
-                    $redirect = $_SESSION['redirect_after_login'] ?? "../{$user['role']}/dashboard.php";
-                    unset($_SESSION['redirect_after_login']);
-                    header("Location: $redirect");
-                    exit();
-                }
+        if ($user && password_verify($password, (string)$user["mot_de_passe"])) {
+            if (in_array($role, ['gerant', 'admin'], true) && ($user['statut'] ?? '') !== 'actif') {
+                throw new Exception("Ce compte est suspendu. Veuillez contacter l'administrateur.");
             }
+            session_regenerate_id(true);
+            $_SESSION["id"]    = (int)$user["id"];
+            $_SESSION["nom"]   = (string)$user["nom"];
+            $_SESSION["role"]  = (string)$user["role"];
+            $_SESSION["email"] = (string)$user["email"];
+            $_SESSION["photo_path"] = ($user['role'] === 'candidat') ? $user['candidate_photo'] : $user['user_photo'];
+            
+            // Génération du token d'authentification (pour plus de sécurité)
+            $_SESSION["auth_token"] = bin2hex(random_bytes(32));
+            
+            $redirect = $_SESSION['redirect_after_login'] ?? "../{$user['role']}/dashboard.php";
+            unset($_SESSION['redirect_after_login']);
+            header("Location: $redirect");
+            exit();
         } else {
-            send_error("Identifiants incorrects.", 401);
+            throw new Exception("Identifiants de connexion incorrects.");
         }
+    } catch (Exception $e) {
+        $_SESSION['login_error'] = $e->getMessage();
     }
 }
 
-// Affichage du formulaire
-include_header("Connexion " . ucfirst($role));
-$role_colors = [
-    'candidat' => 'primary',
-    'gerant' => 'success',
-    'admin' => 'dark'
-];
-$color = $role_colors[$role] ?? 'primary';
+$role_labels = ['candidat' => 'Candidat', 'gerant' => 'Recruteur', 'admin' => 'Administrateur'];
+$role_icons  = ['candidat' => 'bi-person-fill', 'gerant' => 'bi-building', 'admin' => 'bi-shield-lock-fill'];
+$role_label  = $role_labels[$role] ?? 'Candidat';
+$role_icon   = $role_icons[$role] ?? 'bi-person-fill';
 ?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion <?php echo $role_label; ?> - Admissio</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="<?= PROJECT_PATH ?>assets/css/admissio_design.css">
+<style>
+.login-wrap {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #f0fdf4 0%, #d1fae5 50%, #ecfeff 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; padding: 2rem 1rem;
+}
+.blob { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; }
+.blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(110,168,254,.28) 0%, transparent 70%); top: -180px; right: -180px; animation: drift 20s ease-in-out infinite alternate; }
+.blob-2 { width: 450px; height: 450px; background: radial-gradient(circle, rgba(13,202,240,.15) 0%, transparent 70%); bottom: -120px; left: -120px; animation: drift 16s ease-in-out infinite alternate-reverse; }
+@keyframes drift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(50px, 35px) scale(1.07); } }
 
-<div class="auth-wrapper position-relative overflow-hidden min-vh-100 d-flex align-items-center" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);">
-    <!-- Formes d'arrière-plan décoratives -->
-    <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-<?php echo $color; ?> opacity-10 blur-custom" style="width: 600px; height: 600px; filter: blur(80px);"></div>
-    <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-info opacity-10 blur-custom" style="width: 400px; height: 400px; filter: blur(60px);"></div>
+.login-card {
+    background: rgba(255,255,255,.88);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,.95);
+    border-radius: 28px;
+    padding: 3rem;
+    box-shadow: 0 30px 80px rgba(15,81,50,.12), 0 2px 0 rgba(255,255,255,.8) inset;
+    width: 100%; max-width: 460px;
+    position: relative; z-index: 1;
+}
+@media (max-width: 480px) {
+    .login-card { padding: 2rem 1.5rem; border-radius: 20px; }
+    .login-card h1 { font-size: 1.5rem; }
+}
+.role-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(15,81,50,.08); color: #0f5132;
+    padding: 6px 16px; border-radius: 100px;
+    font-weight: 700; font-size: .82rem;
+    border: 1px solid rgba(15,81,50,.15);
+    margin-bottom: 1.5rem;
+}
+.login-card h1 { font-size: 1.8rem; font-weight: 900; color: #0f172a; margin-bottom: .4rem; }
+.login-card .sub { font-size: .92rem; color: #64748b; margin-bottom: 2rem; }
+.form-floating-group { position: relative; margin-bottom: 1.25rem; }
+.form-floating-group .fi {
+    position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+    color: #94a3b8; font-size: 1rem; pointer-events: none;
+}
+.form-floating-group input {
+    width: 100%;
+    border: 1.5px solid rgba(0,0,0,.1);
+    border-radius: 14px;
+    padding: .85rem 1rem .85rem 2.75rem;
+    font-size: .95rem; font-family: 'Inter', sans-serif;
+    color: #0f172a; background: rgba(255,255,255,.7);
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+}
+.form-floating-group input:focus {
+    border-color: #0f5132;
+    box-shadow: 0 0 0 3px rgba(15,81,50,.1);
+    background: #fff;
+}
+.form-floating-group .eye-btn {
+    position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: #94a3b8; cursor: pointer; padding: .25rem;
+    transition: color .2s;
+}
+.form-floating-group .eye-btn:hover { color: #0f5132; }
+.btn-login {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: .9rem;
+    background: #0f5132; color: #fff;
+    border: none; border-radius: 100px;
+    font-weight: 700; font-size: 1rem; font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(15,81,50,.35);
+    transition: all .25s;
+    text-decoration: none; margin-top: .5rem;
+}
+.btn-login:hover { background: #0a3622; color: #fff; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15,81,50,.4); }
+.btn-secondary-login {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: .8rem;
+    background: transparent; color: #0f172a;
+    border: 1.5px solid rgba(0,0,0,.1); border-radius: 100px;
+    font-weight: 600; font-size: .9rem; font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: all .25s; text-decoration: none;
+    margin-top: .75rem;
+}
+.btn-secondary-login:hover { background: #f8fafc; color: #0f172a; transform: translateY(-1px); }
+.divider { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+.divider hr { flex: 1; border: none; border-top: 1px solid rgba(0,0,0,.08); }
+.divider span { font-size: .8rem; color: #94a3b8; font-weight: 600; white-space: nowrap; }
+.alert-err {
+    background: rgba(239,68,68,.08); color: #dc2626;
+    border: 1px solid rgba(239,68,68,.15); border-radius: 14px;
+    padding: .875rem 1.25rem; font-size: .88rem; font-weight: 600;
+    display: flex; align-items: center; gap: .75rem;
+    margin-bottom: 1.25rem;
+}
+.nav-back {
+    position: absolute; top: 1.5rem; left: 1.5rem; z-index: 10;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,.8); backdrop-filter: blur(10px);
+    border: 1px solid rgba(0,0,0,.08); border-radius: 100px;
+    padding: 8px 16px; color: #0f172a; font-weight: 600; font-size: .85rem;
+    text-decoration: none; transition: all .2s;
+}
+.nav-back:hover { background: #fff; color: #0f5132; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
 
-    <div class="container py-5 position-relative z-1 d-flex justify-content-center">
-        <div class="card border-0 shadow-lg rounded-5 p-4 p-md-5 animate__animated animate__zoomIn bg-white bg-opacity-75 backdrop-blur border-top border-<?php echo $color; ?> border-5" style="max-width: 450px; width: 100%; border-width: 5px 0 0 0 !important;">
-            <div class="text-center mb-4">
-                <div class="mx-auto bg-<?php echo $color; ?> bg-opacity-10 text-<?php echo $color; ?> p-3 rounded-circle mb-3 icon-hover-bounce" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
-                    <i class="bi <?php echo $role === 'candidat' ? 'bi-person-badge' : ($role === 'gerant' ? 'bi-briefcase' : 'bi-shield-lock'); ?> fs-2"></i>
-                </div>
-                <h2 class="fw-black h3 mb-1" style="font-family: 'Outfit', sans-serif;">Admissio</h2>
-                <p class="text-muted small">Espace <strong class="text-<?php echo $color; ?>"><?php echo ($role === 'gerant' ? 'Recruteur' : ucfirst($role)); ?></strong></p>
-            </div>
+    <a href="<?= PROJECT_PATH ?>index.php" class="nav-back">
+        <i class="bi bi-arrow-left"></i> Accueil
+    </a>
 
-            <form method="POST" id="loginForm">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase text-muted mb-2" style="letter-spacing: 1px; font-size: 0.75rem;">Adresse Email</label>
-                    <div class="input-group input-group-lg shadow-sm">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-envelope"></i></span>
-                        <input type="email" name="email" class="form-control bg-white border-start-0 ps-0 fs-6" placeholder="nom@exemple.ma" required autofocus>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="form-label fw-bold small text-uppercase text-muted mb-0" style="letter-spacing: 1px; font-size: 0.75rem;">Mot de passe</label>
-                        <a href="forgot_password.php" class="text-<?php echo $color; ?> text-decoration-none small fw-semibold">Oublié ?</a>
-                    </div>
-                    <div class="input-group input-group-lg shadow-sm">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-key"></i></span>
-                        <input type="password" name="password" id="login_password" class="form-control bg-white border-start-0 border-end-0 ps-0 fs-6" placeholder="••••••••" required>
-                        <button class="btn btn-outline-secondary border-start-0 bg-white text-muted" type="button" onclick="togglePassword('login_password', this)">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-<?php echo $color; ?> w-100 py-3 fw-bold shadow-sm rounded-pill mt-2 hover-lift-lg btn-lg fs-6" style="box-shadow: 0 0 15px rgba(var(--bs-<?php echo $color; ?>-rgb), 0.4) !important;">
-                    Se connecter <i class="bi bi-box-arrow-in-right ms-2"></i>
-                </button>
-            </form>
-
-            <div class="mt-4 pt-4 border-top text-center small">
-                <?php if ($role === 'candidat'): ?>
-                    <span class="text-muted">Pas encore de compte ?</span> 
-                    <a href="register_candidat.php" class="text-<?php echo $color; ?> fw-bold text-decoration-none">S'inscrire</a>
-                <?php elseif ($role === 'gerant'): ?>
-                    <span class="text-muted">Une structure, une école ou une entreprise ?</span> 
-                    <a href="register_gerant.php" class="text-<?php echo $color; ?> fw-bold text-decoration-none">Demander un compte</a>
-                <?php endif; ?>
-                <div class="mt-4">
-                    <a href="../choix_connexion.php" class="btn btn-sm btn-light rounded-pill px-4 text-muted border fw-semibold hover-lift-lg">
-                        <i class="bi bi-arrow-left me-1"></i> Retour aux rôles
-                    </a>
-                </div>
-            </div>
+    <div class="login-card">
+        <div class="role-pill">
+            <i class="bi <?php echo $role_icon; ?>"></i>
+            <?php echo $role_label; ?>
         </div>
+        
+        <p class="sub">Connectez-vous a votre espace <strong><?php echo $role_label; ?></strong></p>
+
+        <?php 
+        $error_to_show = $_SESSION['login_error'] ?? $_SESSION['error_message'] ?? null;
+        if (!empty($error_to_show)): 
+        ?>
+        <div class="alert-err">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <?php 
+            echo htmlspecialchars($error_to_show); 
+            unset($_SESSION['login_error'], $_SESSION['error_message']); 
+            ?>
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" id="loginForm">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+            <input type="hidden" name="role" value="<?php echo htmlspecialchars($role); ?>">
+
+            <div class="form-floating-group">
+                <i class="bi bi-envelope fi"></i>
+                <input type="email" name="email" id="login_email" placeholder="votre@email.com" required autofocus>
+            </div>
+
+            <div class="form-floating-group">
+                <i class="bi bi-lock fi"></i>
+                <input type="password" name="password" id="login_password" placeholder="Mot de passe" required>
+                <button type="button" class="eye-btn" onclick="togglePassword('login_password', this)">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-end mb-3">
+                <a href="forgot_password.php" style="font-size:.85rem; color:#0f5132; font-weight:600; text-decoration:none;">Mot de passe oublie ?</a>
+            </div>
+
+            <button type="submit" class="btn-login">
+                Se connecter <i class="bi bi-arrow-right"></i>
+            </button>
+        </form>
+
+        <?php if (in_array($role, ['candidat', 'gerant'])): ?>
+        <div class="divider">
+            <hr><span>Ou</span><hr>
+        </div>
+        <div class="text-center mt-3" style="font-size: .95rem; font-weight: 500; color: #64748b;">
+            Vous n'avez pas de compte ? 
+            <?php if ($role === 'candidat'): ?>
+                <a href="register_candidat.php" style="color: #0f5132; font-weight: 700; text-decoration: none;">S'inscrire</a>
+            <?php else: ?>
+                <a href="register_gerant.php" style="color: #0f5132; font-weight: 700; text-decoration: none;">S'inscrire</a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
-
-<style>
-/* Utilities */
-.hover-lift-lg { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.hover-lift-lg:hover { transform: translateY(-3px); box-shadow: 0 1rem 3rem rgba(0,0,0,.15)!important; }
-.backdrop-blur { backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
-.custom-glow { box-shadow: 0 0 15px rgba(var(--bs-<?php echo $color; ?>-rgb), 0.4) !important; }
-.icon-hover-bounce { transition: transform 0.3s ease; }
-.icon-hover-bounce:hover { transform: translateY(-5px) scale(1.05); }
-.fw-black { font-weight: 900; }
-</style>
-
-<?php 
-include_footer();
-exit();
-?>
+<script>
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = (input.type === 'password') ? 'text' : 'password';
+    btn.querySelector('i').className = (input.type === 'password') ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+</script>
+</body>
+</html>

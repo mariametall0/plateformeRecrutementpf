@@ -4,8 +4,8 @@ require_once "includes/layout.php";
 include_header("Politique de Confidentialité");
 ?>
 <div class="container py-5 mt-5">
-    <div class="p-5 bg-white shadow-sm rounded-4 border-top border-primary border-5">
-        <h1 class="fw-black mb-4"><i class="bi bi-shield-lock text-primary me-2"></i> Politique de Confidentialité</h1>
+    <div class="p-5 bg-white shadow-sm rounded-4 border-top border-success border-5">
+        <h1 class="fw-black mb-4"><i class="bi bi-shield-lock text-success me-2"></i> Politique de Confidentialité</h1>
         <p class="lead text-muted mb-5">Dernière mise à jour : 15 Mars 2026</p>
         
         <h4 class="fw-bold mt-4">1. Collecte des Données</h4>
@@ -22,3 +22,4 @@ include_header("Politique de Confidentialité");
     </div>
 </div>
 <?php include_footer(); ?>
+

@@ -18,8 +18,8 @@ $stmt = $pdo->prepare("
            co.titre AS offre_titre, co.id_gerant,
            g.nom AS gerant_nom
     FROM candidatures c
+    JOIN concours co ON c.id_concours = co.id
     JOIN utilisateurs u ON c.id_candidat = u.id
-    JOIN offres co ON c.id_offre = co.id
     JOIN utilisateurs g ON co.id_gerant = g.id
     WHERE c.id = ? AND co.id_gerant = ?
 ");
@@ -106,3 +106,4 @@ $pdf->Cell(95, 6, utf8_decode("(Lu et approuve, precede de la signature)"), 0, 1
 // Sortie du HTTP
 $pdf->Output("I", "Lettre_Offre_" . preg_replace('/[^a-zA-Z0-9_-]/', '_', $cand['candidat_nom']) . ".pdf", true);
 ?>
+

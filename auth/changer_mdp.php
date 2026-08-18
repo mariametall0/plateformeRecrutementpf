@@ -107,7 +107,7 @@ include_header("Changer le mot de passe");
                 </div>
                 
                 <div class="d-grid gap-2 mt-5">
-                    <button type="submit" class="btn btn-primary py-3 fw-bold rounded-pill shadow-sm border-0">
+                    <button type="submit" class="btn btn-success py-3 fw-bold rounded-pill shadow-sm border-0">
                         Mettre à jour le mot de passe
                     </button>
                     <a href="../<?php echo $_SESSION['role']; ?>/dashboard.php" class="btn btn-light py-2 fw-bold rounded-pill border">
@@ -129,3 +129,4 @@ include_header("Changer le mot de passe");
 include_footer();
 exit();
 ?>
+

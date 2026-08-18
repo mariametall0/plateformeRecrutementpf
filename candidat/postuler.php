@@ -25,8 +25,14 @@ try {
         ], 409);
     }
 
+    // Vérification de sécurité : une candidature ne peut pas avoir offre ET concours
+    $id_concours_check = (int)($_POST["id_concours"] ?? $_GET["id_concours"] ?? 0);
+    if ($id_offre && $id_concours_check) {
+        die("Erreur logique");
+    }
+
     // Insérer la candidature
-    $stmt = $pdo->prepare("INSERT INTO candidatures (id_candidat, id_offre, statut, date_candidature) VALUES (?, ?, 'en_attente', NOW())");
+    $stmt = $pdo->prepare("INSERT INTO candidatures (id_candidat, id_concours, id_offre, statut, date_candidature) VALUES (?, NULL, ?, 'en_attente', NOW())");
     $stmt->execute([$id_candidat, $id_offre]);
     $id_candidature = $pdo->lastInsertId();
 

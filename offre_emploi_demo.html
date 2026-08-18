@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offre d'emploi – Développeur Web Full Stack</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    padding: 40px 20px;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    padding: 44px 48px 36px;
+    color: white;
+  }
+
+  .header .company {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 10px;
+  }
+
+  .header h1 {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1.2;
+    margin-bottom: 18px;
+    letter-spacing: -0.5px;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .tag {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 50px;
+  }
+
+  /* Body */
+  .body {
+    padding: 40px 48px;
+  }
+
+  /* Info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .info-box {
+    background: #f0fdf4;
+    border: 1.5px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+
+  .info-box .label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #16a34a;
+    margin-bottom: 5px;
+  }
+
+  .info-box .value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  /* Sections */
+  .section {
+    margin-bottom: 28px;
+  }
+
+  .section h2 {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f5132;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #dcfce7;
+  }
+
+  .section p {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.75;
+  }
+
+  .section ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .section ul li {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.75;
+    padding-left: 20px;
+    position: relative;
+    margin-bottom: 4px;
+  }
+
+  .section ul li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #16a34a;
+    font-weight: 900;
+  }
+
+  /* Footer */
+  .footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 24px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer .deadline {
+    font-size: 13px;
+    color: #64748b;
+  }
+
+  .footer .deadline strong {
+    color: #dc2626;
+    font-weight: 800;
+  }
+
+  .footer .cta {
+    background: linear-gradient(135deg, #0f5132, #198754);
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 24px;
+    border-radius: 50px;
+    text-decoration: none;
+    letter-spacing: 0.3px;
+  }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .page { box-shadow: none; border-radius: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <p class="company">ADMISSIO — Plateforme de Recrutement</p>
+    <h1>Développeur Web Full Stack</h1>
+    <div class="tags">
+      <span class="tag">💻 Informatique</span>
+      <span class="tag">📍 Nouakchott, Mauritanie</span>
+      <span class="tag">🕐 CDI – Temps plein</span>
+      <span class="tag">🎓 Bac+3 minimum</span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Info Grid -->
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="label">Secteur</div>
+        <div class="value">Informatique</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Type de contrat</div>
+        <div class="value">CDI</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Expérience requise</div>
+        <div class="value">1 à 3 ans</div>
+      </div>
+    </div>
+
+    <!-- Présentation -->
+    <div class="section">
+      <h2>Présentation du Poste</h2>
+      <p>
+        Dans le cadre du développement de ses services numériques, notre entreprise recrute un(e) 
+        <strong>Développeur Web Full Stack</strong> motivé(e) et créatif(ve). Vous serez intégré(e) 
+        au sein d'une équipe technique dynamique pour concevoir, développer et maintenir des 
+        applications web modernes et performantes.
+      </p>
+    </div>
+
+    <!-- Missions -->
+    <div class="section">
+      <h2>Missions Principales</h2>
+      <ul>
+        <li>Développer et maintenir des applications web (front-end et back-end)</li>
+        <li>Concevoir et optimiser des bases de données relationnelles (MySQL)</li>
+        <li>Collaborer avec l'équipe design pour intégrer les maquettes UI/UX</li>
+        <li>Rédiger une documentation technique claire et complète</li>
+        <li>Participer aux revues de code et aux réunions techniques hebdomadaires</li>
+        <li>Assurer la sécurité et les performances des applications développées</li>
+      </ul>
+    </div>
+
+    <!-- Profil -->
+    <div class="section">
+      <h2>Profil Recherché</h2>
+      <ul>
+        <li>Diplôme Bac+3 minimum en Informatique, Génie Logiciel ou équivalent</li>
+        <li>Maîtrise des technologies : HTML, CSS, JavaScript, PHP, MySQL</li>
+        <li>Connaissance des frameworks modernes (React, Vue.js, Laravel)</li>
+        <li>Bonne maîtrise des outils Git / GitHub pour la gestion de version</li>
+        <li>Sens de l'organisation, autonomie et esprit d'équipe</li>
+        <li>Bonne communication en français (l'arabe est un plus)</li>
+      </ul>
+    </div>
+
+    <!-- Avantages -->
+    <div class="section">
+      <h2>Ce que nous offrons</h2>
+      <ul>
+        <li>Salaire compétitif selon le profil et l'expérience</li>
+        <li>Environnement de travail moderne et stimulant</li>
+        <li>Formations continues et montée en compétences assurée</li>
+        <li>Projets variés avec des technologies récentes</li>
+      </ul>
+    </div>
+
+    <!-- Dossier -->
+    <div class="section">
+      <h2>Dossier de Candidature</h2>
+      <ul>
+        <li>Curriculum Vitae (CV) à jour — Format PDF uniquement</li>
+        <li>Lettre de motivation adressée au Directeur des Ressources Humaines</li>
+        <li>Copie du ou des diplômes obtenus</li>
+        <li>Tout certificat ou attestation de formation pertinente</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="deadline">
+      📅 Date limite de candidature : <strong>25 juillet 2026</strong>
+    </div>
+    <div>
+      Postulez sur <strong>Admissio</strong>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

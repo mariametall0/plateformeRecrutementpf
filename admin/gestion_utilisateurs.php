@@ -68,12 +68,12 @@ include_header("Gestion des Utilisateurs");
                         <select name="role" class="form-select form-select-lg bg-white shadow-sm fw-medium">
                             <option value="">Tous les rôles</option>
                             <option value="admin" <?php echo $filtre_role === 'admin' ? 'selected' : ''; ?>>🛡️ Administrateurs</option>
-                            <option value="gerant" <?php echo $filtre_role === 'gerant' ? 'selected' : ''; ?>>💼 Recruteurs</option>
+                            <option value="gerant" <?php echo $filtre_role === 'gerant' ? 'selected' : ''; ?>>💼 Gérants de pôles</option>
                             <option value="candidat" <?php echo $filtre_role === 'candidat' ? 'selected' : ''; ?>>🎓 Candidats</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-6 col-xl-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-dark btn-lg flex-grow-1 fw-bold shadow-sm rounded-pill">Filtrer</button>
+                        <button type="submit" class="btn btn-success btn-lg flex-grow-1 fw-bold shadow-sm rounded-pill">Filtrer</button>
                         <a href="gestion_utilisateurs.php" class="btn btn-light btn-lg border rounded-pill px-3" title="Reset">
                             <i class="bi bi-x-lg"></i>
                         </a>
@@ -102,7 +102,7 @@ include_header("Gestion des Utilisateurs");
                             <tr>
                                 <td class="ps-4 py-4">
                                     <div class="d-flex align-items-center">
-                                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-3 me-3 fw-bold shadow-sm" style="width: 48px; height: 48px; display: flex; align-items:center; justify-content:center;">
+                                        <div class="rounded-circle bg-success bg-opacity-10 text-success p-3 me-3 fw-bold shadow-sm" style="width: 48px; height: 48px; display: flex; align-items:center; justify-content:center;">
                                             <?php echo strtoupper(substr($u['nom'], 0, 2)); ?>
                                         </div>
                                         <div>
@@ -118,7 +118,7 @@ include_header("Gestion des Utilisateurs");
                                         elseif ($u['role'] === 'gerant') { $role_icon = '💼'; $role_color = 'blue'; }
                                     ?>
                                     <span class="badge bg-<?php echo $role_color; ?> bg-opacity-10 text-<?php echo $role_color; ?> border border-<?php echo $role_color; ?>-subtle rounded-pill">
-                                        <?php echo $role_icon . ' ' . ($u['role'] === 'gerant' ? 'Recruteur' : ucfirst($u['role'])); ?>
+                                        <?php echo $role_icon . ' ' . ucfirst($u['role']); ?>
                                     </span>
                                 </td>
                                 <td class="py-4 text-center">
@@ -140,7 +140,7 @@ include_header("Gestion des Utilisateurs");
                                                 Bloquer
                                             </a>
                                         <?php else: ?>
-                                            <a href="?action=activer&id=<?php echo $u['id']; ?>" class="btn btn-primary btn-sm rounded-pill px-3 fw-bold border-0">
+                                            <a href="?action=activer&id=<?php echo $u['id']; ?>" class="btn btn-success btn-sm rounded-pill px-3 fw-bold border-0">
                                                 Activer
                                             </a>
                                         <?php endif; ?>
@@ -168,3 +168,4 @@ include_header("Gestion des Utilisateurs");
 <?php 
 include_footer();
 exit();
+

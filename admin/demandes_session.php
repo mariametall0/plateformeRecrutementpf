@@ -20,7 +20,7 @@ if (isset($_GET["action"], $_GET["id"])) {
                 $stmt_dem->execute([$id_demande]);
                 $dem = $stmt_dem->fetch(PDO::FETCH_ASSOC);
                 if ($dem) {
-                    $pdo->prepare("INSERT INTO sessions_offres (id_offre, date_debut, date_fin, statut) VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'active')")->execute([$dem["id_offre"]]);
+                    $pdo->prepare("INSERT INTO sessions_concours (id_concours, date_debut, date_fin, statut) VALUES (?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'active')")->execute([$dem["id_concours"]]);
                 }
                 $msg = "Demande approuvée et session créée.";
             }
@@ -38,21 +38,6 @@ if (isset($_GET["action"], $_GET["id"])) {
     }
 }
 
-// Filtre par statut
-$filtre = $_GET['statut'] ?? '';
-$params = [];
-$sql = "SELECT d.*, c.titre as offre_titre, u.nom as gerant_nom, u.email as gerant_email 
-        FROM demandes_session d 
-        JOIN offres c ON d.id_offre = c.id 
-        JOIN utilisateurs u ON d.id_gerant = u.id 
-        WHERE 1=1";
-
-if (!empty($filtre)) {
-    $sql .= " AND d.statut = ?";
-    $params[] = $filtre;
-}
-$sql .= " ORDER BY d.date_demande DESC";
-
 // Récupération pour affichage
 $demandes = [];
 try {
@@ -66,7 +51,7 @@ include_header("Demandes de Session");
 
 <div style="max-width: 1200px; margin: 0 auto;">
     <header style="margin-bottom: 2rem;">
-        <h1>Demandes de Session Offre</h1>
+        <h1>Demandes de Session Concours</h1>
         <p style="color: var(--text-muted);">Activez les nouvelles sessions de recrutement demandées par les gérants.</p>
     </header>
 
@@ -81,7 +66,7 @@ include_header("Demandes de Session");
                     <option value="refusee" <?php echo $filtre === 'refusee' ? 'selected' : ''; ?>>❌ Refusées</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary" style="width: auto;">Filtrer</button>
+            <button type="submit" class="btn btn-success" style="width: auto;">Filtrer</button>
             <a href="demandes_session.php" class="btn" style="width: auto; background: var(--border);">Réinitialiser</a>
         </form>
     </div>
@@ -95,7 +80,7 @@ include_header("Demandes de Session");
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: var(--background); border-bottom: 1px solid var(--border);">
-                        <th style="padding: 1rem 1.5rem; text-align: left; font-size: 0.875rem; color: var(--text-muted);">OFFRE / GÉRANT</th>
+                        <th style="padding: 1rem 1.5rem; text-align: left; font-size: 0.875rem; color: var(--text-muted);">CONCOURS / GÉRANT</th>
                         <th style="padding: 1rem 1.5rem; text-align: left; font-size: 0.875rem; color: var(--text-muted);">DATE DEMANDE</th>
                         <th style="padding: 1rem 1.5rem; text-align: left; font-size: 0.875rem; color: var(--text-muted);">STATUT</th>
                         <th style="padding: 1rem 1.5rem; text-align: right; font-size: 0.875rem; color: var(--text-muted);">ACTIONS</th>
@@ -105,7 +90,7 @@ include_header("Demandes de Session");
                     <?php foreach ($demandes as $d): ?>
                         <tr style="border-bottom: 1px solid var(--border);">
                             <td style="padding: 1.25rem 1.5rem;">
-                                <div style="font-weight: 600;"><?php echo htmlspecialchars($d['offre_titre']); ?></div>
+                                <div style="font-weight: 600;"><?php echo htmlspecialchars($d['concours_titre']); ?></div>
                                 <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($d['gerant_nom']); ?> (<?php echo htmlspecialchars($d['gerant_email']); ?>)</div>
                             </td>
                             <td style="padding: 1.25rem 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
@@ -143,3 +128,4 @@ include_header("Demandes de Session");
 include_footer();
 exit();
 ?>
+

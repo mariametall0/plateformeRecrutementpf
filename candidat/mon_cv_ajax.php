@@ -1,227 +1,338 @@
 <?php
+/**
+ * mon_cv_ajax.php – Gestionnaire AJAX pour le CV Numérique.
+ */
 require_once "../includes/layout.php";
-require_once "../includes/ai_helper.php";
+ob_start();
+require_once "../includes/analysis_helper.php";
 require_once "../includes/pdf_helper.php";
 
 header('Content-Type: application/json');
 
 // Protection candidat
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'candidat') {
-    echo json_encode(['success' => false, 'error' => 'Accès non autorisé']);
-    exit();
+check_role('candidat');
+
+// Protection CSRF systématique pour POST
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    // Vérifier dépassement post_max_size
+    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+        $max_size = ini_get('post_max_size');
+        send_json(['error' => "La taille totale dépasse la limite autorisée par le serveur (max $max_size)."], 413);
+    }
+    verify_csrf_token();
+}
+
+function clean_db_date(?string $date, bool $is_month_only = false): ?string {
+    if (!$date) return null;
+    $date = trim($date);
+    if (empty($date) || strpos($date, '0000') === 0) return null;
+    if ($is_month_only && strlen($date) === 7) {
+        return $date . "-01";
+    }
+    return $date;
 }
 
 $user_id = $_SESSION["id"];
-$action = $_POST["action"] ?? "";
+$action = $_POST["action"] ?? $_GET["action"] ?? "";
 $type = $_POST["type"] ?? "";
 
+// Mapping des tables
+$tables = [
+    'formation' => 'cv_formations',
+    'experience' => 'cv_experiences',
+    'competence' => 'cv_competences',
+    'langue' => 'cv_langues',
+    'certification' => 'cv_certifications',
+    'interet' => 'cv_interets'
+];
+
 try {
+
+    // ================= BIO =================
     if ($action === "save_bio") {
-        $bio = $_POST["bio"] ?? "";
-        $check = $pdo->prepare("SELECT id FROM profils_candidats WHERE id_utilisateur = ?");
-        $check->execute([$user_id]);
-        if ($check->rowCount() > 0) {
-            $stmt = $pdo->prepare("UPDATE profils_candidats SET bio = ? WHERE id_utilisateur = ?");
-            $stmt->execute([$bio, $user_id]);
-        } else {
-            $stmt = $pdo->prepare("INSERT INTO profils_candidats (id_utilisateur, bio) VALUES (?, ?)");
-            $stmt->execute([$user_id, $bio]);
-        }
-        echo json_encode(['success' => true]);
-        exit();
+        $bio = trim($_POST["bio"] ?? "");
+        $specialite = trim($_POST["secteur_specialite"] ?? "");
+        $linkedin = trim($_POST["linkedin"] ?? "");
+        $nom = trim($_POST["nom"] ?? "");
+        $email = trim($_POST["email"] ?? "");
+        $telephone = trim($_POST["telephone"] ?? "");
+        $adresse = trim($_POST["adresse"] ?? "");
+        
+        $stmt_u = $pdo->prepare("UPDATE utilisateurs SET nom = ?, email = ?, telephone = ?, adresse = ? WHERE id = ?");
+        $stmt_u->execute([$nom, $email, $telephone, $adresse, $user_id]);
+
+        $stmt = $pdo->prepare("INSERT INTO profils_candidats (id_utilisateur, bio, secteur_specialite, linkedin) 
+                               VALUES (?, ?, ?, ?) 
+                               ON DUPLICATE KEY UPDATE bio = VALUES(bio), secteur_specialite = VALUES(secteur_specialite), linkedin = VALUES(linkedin)");
+        $stmt->execute([$user_id, $bio, $specialite, $linkedin]);
+
+        send_json(['success' => true]);
     }
 
+    // ================= GET ITEM =================
     if ($action === "getItem") {
-        $id = (int)$_POST["id"];
-        $table = "";
-        if ($type === 'formation') $table = "cv_formations";
-        elseif ($type === 'experience') $table = "cv_experiences";
-        elseif ($type === 'competence') $table = "cv_competences";
-        elseif ($type === 'langue') $table = "cv_langues";
-        elseif ($type === 'certification') $table = "cv_certifications";
+        $id = (int)($_POST["id"] ?? 0);
+        $table = $tables[$type] ?? null;
 
-        if ($table) {
-            $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = ? AND id_utilisateur = ?");
-            $stmt->execute([$id, $user_id]);
-            $item = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo json_encode(['success' => true, 'data' => $item]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Type invalide']);
-        }
-        exit();
+        if (!$table) send_json(['error' => 'Type de document invalide'], 400);
+
+        $stmt = $pdo->prepare("SELECT * FROM $table WHERE id = ? AND id_utilisateur = ?");
+        $stmt->execute([$id, $user_id]);
+
+        send_json(['success' => true, 'data' => $stmt->fetch(PDO::FETCH_ASSOC)]);
     }
 
+    // ================= DELETE =================
     if ($action === "delete") {
-        $id = (int)$_POST["id"];
-        $table = "";
-        if ($type === 'formation') $table = "cv_formations";
-        elseif ($type === 'experience') $table = "cv_experiences";
-        elseif ($type === 'competence') $table = "cv_competences";
-        elseif ($type === 'langue') $table = "cv_langues";
-        elseif ($type === 'certification') $table = "cv_certifications";
+        $id = (int)($_POST["id"] ?? 0);
+        $table = $tables[$type] ?? null;
 
-        if ($table) {
-            $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ? AND id_utilisateur = ?");
-            $stmt->execute([$id, $user_id]);
-            echo json_encode(['success' => true]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Type invalide']);
-        }
-        exit();
+        if (!$table) send_json(['error' => 'Type de document invalide'], 400);
+
+        $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ? AND id_utilisateur = ?");
+        $stmt->execute([$id, $user_id]);
+
+        send_json(['success' => true]);
     }
 
+    // ================= ADD / EDIT =================
     if ($action === "add" || $action === "edit") {
         $id = isset($_POST["id"]) ? (int)$_POST["id"] : null;
-        
+
         if ($type === 'formation') {
+            $diplome = trim($_POST["diplome"] ?? '');
+            if (empty($diplome)) send_json(['error' => 'Le nom du diplôme est requis'], 400);
+
+            $etablissement = trim($_POST["etablissement"] ?? '');
+            $ville = trim($_POST["ville"] ?? '');
+            $date_debut = clean_db_date($_POST["date_debut"] ?? '', true);
+            $date_fin = clean_db_date($_POST["date_fin"] ?? '', true);
+
             if ($action === "add") {
-                $stmt = $pdo->prepare("INSERT INTO cv_formations (id_utilisateur, diplome, etablissement, ville, date_debut, date_fin, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$user_id, $_POST["diplome"] ?? '', $_POST["etablissement"] ?? '', $_POST["ville"] ?? null, ($_POST["date_debut"] ?? null) ?: null, ($_POST["date_fin"] ?? null) ?: null, $_POST["description"] ?? null]);
+                $stmt = $pdo->prepare("INSERT INTO cv_formations (id_utilisateur, diplome, etablissement, ville, date_debut, date_fin) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$user_id, $diplome, $etablissement, $ville, $date_debut, $date_fin]);
             } else {
-                $stmt = $pdo->prepare("UPDATE cv_formations SET diplome=?, etablissement=?, ville=?, date_debut=?, date_fin=?, description=? WHERE id=? AND id_utilisateur=?");
-                $stmt->execute([$_POST["diplome"] ?? '', $_POST["etablissement"] ?? '', $_POST["ville"] ?? null, ($_POST["date_debut"] ?? null) ?: null, ($_POST["date_fin"] ?? null) ?: null, $_POST["description"] ?? null, $id, $user_id]);
+                $stmt = $pdo->prepare("UPDATE cv_formations SET diplome=?, etablissement=?, ville=?, date_debut=?, date_fin=? WHERE id=? AND id_utilisateur=?");
+                $stmt->execute([$diplome, $etablissement, $ville, $date_debut, $date_fin, $id, $user_id]);
             }
-        } elseif ($type === 'experience') {
+        }
+        elseif ($type === 'experience') {
+            $poste = trim($_POST["poste"] ?? '');
+            if (empty($poste)) send_json(['error' => 'L\'intitulé du poste est requis'], 400);
+
+            $entreprise = trim($_POST["entreprise"] ?? '');
+            $ville = trim($_POST["ville"] ?? '');
+            $description = trim($_POST["description"] ?? '');
+            $date_debut = clean_db_date($_POST["date_debut"] ?? '', true);
             $en_poste = isset($_POST["en_poste"]) ? 1 : 0;
-            $date_fin = $en_poste ? null : (($_POST["date_fin"] ?? null) ?: null);
+            $date_fin = $en_poste ? null : clean_db_date($_POST["date_fin"] ?? '', true);
+
             if ($action === "add") {
                 $stmt = $pdo->prepare("INSERT INTO cv_experiences (id_utilisateur, poste, entreprise, ville, date_debut, date_fin, en_poste, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$user_id, $_POST["poste"] ?? '', $_POST["entreprise"] ?? '', $_POST["ville"] ?? null, ($_POST["date_debut"] ?? null) ?: null, $date_fin, $en_poste, $_POST["description"] ?? null]);
+                $stmt->execute([$user_id, $poste, $entreprise, $ville, $date_debut, $date_fin, $en_poste, $description]);
             } else {
                 $stmt = $pdo->prepare("UPDATE cv_experiences SET poste=?, entreprise=?, ville=?, date_debut=?, date_fin=?, en_poste=?, description=? WHERE id=? AND id_utilisateur=?");
-                $stmt->execute([$_POST["poste"] ?? '', $_POST["entreprise"] ?? '', $_POST["ville"] ?? null, ($_POST["date_debut"] ?? null) ?: null, $date_fin, $en_poste, $_POST["description"] ?? null, $id, $user_id]);
+                $stmt->execute([$poste, $entreprise, $ville, $date_debut, $date_fin, $en_poste, $description, $id, $user_id]);
             }
-        } elseif ($type === 'competence') {
+        }
+        elseif ($type === 'competence') {
+            $nom = trim($_POST["nom"] ?? '');
+            if (empty($nom)) send_json(['error' => 'Le nom de la compétence est requis'], 400);
+
+            $niveau = (int)($_POST["niveau"] ?? 50);
+            $comp_type = trim($_POST["comp_type"] ?? 'technique');
+
             if ($action === "add") {
                 $stmt = $pdo->prepare("INSERT INTO cv_competences (id_utilisateur, nom, niveau, type) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$user_id, $_POST["nom"], (int)$_POST["niveau"], $_POST["type"]]);
+                $stmt->execute([$user_id, $nom, $niveau, $comp_type]);
             } else {
                 $stmt = $pdo->prepare("UPDATE cv_competences SET nom=?, niveau=?, type=? WHERE id=? AND id_utilisateur=?");
-                $stmt->execute([$_POST["nom"], (int)$_POST["niveau"], $_POST["type"], $id, $user_id]);
+                $stmt->execute([$nom, $niveau, $comp_type, $id, $user_id]);
             }
-        } elseif ($type === 'langue') {
+        }
+        elseif ($type === 'langue') {
+            $langue = trim($_POST["langue"] ?? '');
+            $niveau = trim($_POST["niveau"] ?? 'intermediaire');
+            if (empty($langue)) send_json(['error' => 'Le nom de la langue est requis'], 400);
+
             if ($action === "add") {
                 $stmt = $pdo->prepare("INSERT INTO cv_langues (id_utilisateur, langue, niveau) VALUES (?, ?, ?)");
-                $stmt->execute([$user_id, $_POST["langue"], $_POST["niveau"]]);
+                $stmt->execute([$user_id, $langue, $niveau]);
             } else {
                 $stmt = $pdo->prepare("UPDATE cv_langues SET langue=?, niveau=? WHERE id=? AND id_utilisateur=?");
-                $stmt->execute([$_POST["langue"], $_POST["niveau"], $id, $user_id]);
+                $stmt->execute([$langue, $niveau, $id, $user_id]);
             }
-        } elseif ($type === 'certification') {
+        }
+        elseif ($type === 'certification') {
+            $nom = trim($_POST["nom"] ?? '');
+            $organisme = trim($_POST["organisme"] ?? '');
+            $date_obtention = clean_db_date($_POST["date_obtention"] ?? '', false);
+            if (empty($nom)) send_json(['error' => 'Le nom de la certification est requis'], 400);
+
             if ($action === "add") {
                 $stmt = $pdo->prepare("INSERT INTO cv_certifications (id_utilisateur, nom, organisme, date_obtention) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$user_id, $_POST["nom"], $_POST["organisme"] ?? null, $_POST["date_obtention"] ?: null]);
+                $stmt->execute([$user_id, $nom, $organisme, $date_obtention]);
             } else {
                 $stmt = $pdo->prepare("UPDATE cv_certifications SET nom=?, organisme=?, date_obtention=? WHERE id=? AND id_utilisateur=?");
-                $stmt->execute([$_POST["nom"], $_POST["organisme"] ?? null, $_POST["date_obtention"] ?: null, $id, $user_id]);
+                $stmt->execute([$nom, $organisme, $date_obtention, $id, $user_id]);
             }
         }
-        echo json_encode(['success' => true]);
-        exit();
+        elseif ($type === 'interet') {
+            $nom = trim($_POST["nom"] ?? '');
+            if (empty($nom)) send_json(['error' => 'Le nom du centre d\'intérêt est requis'], 400);
+
+            if ($action === "add") {
+                $stmt = $pdo->prepare("INSERT INTO cv_interets (id_utilisateur, nom) VALUES (?, ?)");
+                $stmt->execute([$user_id, $nom]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE cv_interets SET nom=? WHERE id=? AND id_utilisateur=?");
+                $stmt->execute([$nom, $id, $user_id]);
+            }
+        }
+        send_json(['success' => true]);
     }
 
-    if ($action === "analyze_profile") {
-        // Collecte des données du profil pour l'IA
-        $stmt = $pdo->prepare("SELECT bio FROM profils_candidats WHERE id_utilisateur = ?");
-        $stmt->execute([$user_id]);
-        $bio = $stmt->fetchColumn();
+    // ================= DELETE FULL CV =================
+    if ($action === "delete_full_cv") {
+        $pdo->beginTransaction();
+        foreach ($tables as $t) {
+            $pdo->prepare("DELETE FROM $t WHERE id_utilisateur = ?")->execute([$user_id]);
+        }
+        $pdo->prepare("UPDATE profils_candidats SET bio = NULL WHERE id_utilisateur = ?")->execute([$user_id]);
+        $pdo->commit();
+        send_json(['success' => true]);
+    }
 
-        $stmt = $pdo->prepare("SELECT * FROM cv_formations WHERE id_utilisateur = ?");
-        $stmt->execute([$user_id]);
-        $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $stmt = $pdo->prepare("SELECT * FROM cv_experiences WHERE id_utilisateur = ?");
-        $stmt->execute([$user_id]);
-        $exps = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $profil_complet = [
-            'description' => $bio,
-            'formations' => $forms,
-            'experiences' => $exps
-        ];
-
-        $client = new GeminiClient();
-        // Utiliser une version adaptée de l'analyse pour le profil général
-        $cv_text = json_encode($profil_complet, JSON_UNESCAPED_UNICODE);
-        $result = $client->suggest_cv_improvements($cv_text, "Profil Général", "Analyse globale pour optimisation de carrière");
+    // ================= VISIBILITÉ =================
+    if ($action === "toggle_visibility") {
+        $target = $_POST["target"] ?? "";
+        $value = (int)($_POST["value"] ?? 0);
         
-        echo json_encode(['success' => true, 'advice' => $result]);
-        exit();
+        $col = ($target === 'photo') ? 'masquer_photo' : (($target === 'icones') ? 'masquer_icones' : null);
+        if (!$col) send_json(['error' => 'Cible invalide'], 400);
+
+        $stmt = $pdo->prepare("UPDATE profils_candidats SET $col = ? WHERE id_utilisateur = ?");
+        $stmt->execute([$value, $user_id]);
+        
+        send_json(['success' => true]);
     }
 
+    // ================= IMPORT INTELLIGENT (IA) =================
     if ($action === "import_pdf") {
-        if (!isset($_FILES['cv_file'])) {
-            echo json_encode(['success' => false, 'error' => 'Aucun fichier reçu']);
-            exit();
-        }
+        if (!isset($_FILES['cv_file'])) send_json(['error' => 'Aucun fichier sélectionné'], 400);
 
-        // 1. Upload temporaire
-        $file_path = handle_file_upload($_FILES['cv_file'], "temp_imports/");
+        $file_path = handle_file_upload($_FILES['cv_file'], "temp_imports");
         if (!$file_path) {
-            echo json_encode(['success' => false, 'error' => "Erreur lors de l'upload du fichier"]);
-            exit();
+            $msg = $_SESSION['error_message'] ?? 'Erreur lors de l\'envoi du fichier';
+            unset($_SESSION['error_message']);
+            send_json(['error' => $msg], 400);
         }
+
         $abs_path = __DIR__ . "/../uploads/" . $file_path;
+        
+        try {
+            $analysis = new AnalysisClient();
+            $data = $analysis->extract_from_pdf_file($abs_path);
+            @unlink($abs_path);
 
-        // 2. Extraction texte
-        $text = extract_text_from_pdf($abs_path);
-        if (strlen($text) < 50) {
-            echo json_encode(['success' => false, 'error' => "Le texte du CV n'a pas pu être extrait correctement (PDF protégé ou image)"]);
-            exit();
-        }
-
-        // 3. Parsing IA
-        $client = new GeminiClient();
-        $data = $client->parse_cv_to_structured_data($text);
-
-        if (isset($data['error'])) {
-            echo json_encode(['success' => false, 'error' => $data['error']]);
-            exit();
-        }
-
-        // 4. Persistence (On vide l'ancien pour un import propre si désiré)
-        // Note: On pourrait aussi proposer d'ajouter seulement. Ici on remplace pour éviter les doublons.
-        $pdo->prepare("DELETE FROM cv_formations WHERE id_utilisateur = ?")->execute([$user_id]);
-        $pdo->prepare("DELETE FROM cv_experiences WHERE id_utilisateur = ?")->execute([$user_id]);
-        $pdo->prepare("DELETE FROM cv_competences WHERE id_utilisateur = ?")->execute([$user_id]);
-
-        if (!empty($data['bio'])) {
-            $pdo->prepare("UPDATE profils_candidats SET bio = ? WHERE id_utilisateur = ?")->execute([$data['bio'], $user_id]);
-        }
-
-        if (!empty($data['formations'])) {
-            $stmt = $pdo->prepare("INSERT INTO cv_formations (id_utilisateur, diplome, etablissement, ville, date_debut, date_fin, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            foreach ($data['formations'] as $f) {
-                $stmt->execute([$user_id, $f['diplome'], $f['etablissement'], $f['ville'] ?? null, $f['date_debut'] ?: null, $f['date_fin'] ?: null, $f['description'] ?? null]);
+            if (isset($data['error'])) {
+                 // Fallback local si l'IA échoue
+                 $text = extract_text_from_pdf($abs_path);
+                 $alphanumeric = preg_match_all('/[a-zA-Z0-9éèêàçùôî]/u', $text);
+                 $total = mb_strlen(str_replace(' ', '', $text));
+                 
+                 if (!empty($text) && $total > 0 && ($alphanumeric / $total) > 0.3) {
+                     $stmt = $pdo->prepare("INSERT INTO profils_candidats (id_utilisateur, bio) VALUES (?, ?) ON DUPLICATE KEY UPDATE bio = VALUES(bio)");
+                     $stmt->execute([$user_id, mb_substr($text, 0, 50000)]);
+                     send_json(['success' => true, 'message' => "L'IA est momentanément indisponible. Le texte a été extrait brut dans votre présentation."]);
+                 } else {
+                     send_json(['error' => "L'IA est indisponible et votre PDF utilise un format illisible localement. Veuillez utiliser un PDF plus standard ou réessayer plus tard."], 400);
+                 }
             }
-        }
 
-        if (!empty($data['experiences'])) {
-            $stmt = $pdo->prepare("INSERT INTO cv_experiences (id_utilisateur, poste, entreprise, ville, date_debut, date_fin, en_poste, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            foreach ($data['experiences'] as $e) {
-                $en_poste = ($e['en_poste'] ?? false) ? 1 : 0;
-                $stmt->execute([$user_id, $e['poste'], $e['entreprise'], $e['ville'] ?? null, $e['date_debut'] ?: null, $en_poste ? null : ($e['date_fin'] ?: null), $en_poste, $e['description'] ?? null]);
+            // Insertion des données structurées
+            $pdo->beginTransaction();
+
+            // 1. Bio & Spécialité
+            if (!empty($data['bio']) || !empty($data['secteur_specialite'])) {
+                $stmt = $pdo->prepare("INSERT INTO profils_candidats (id_utilisateur, bio, secteur_specialite) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE bio = VALUES(bio), secteur_specialite = VALUES(secteur_specialite)");
+                $stmt->execute([$user_id, $data['bio'] ?? '', $data['secteur_specialite'] ?? '']);
             }
-        }
 
-        // Compétences
-        if (!empty($data['hard_skills'])) {
-            $stmt = $pdo->prepare("INSERT INTO cv_competences (id_utilisateur, nom, niveau, type) VALUES (?, ?, 80, 'technique')");
-            foreach ($data['hard_skills'] as $s) $stmt->execute([$user_id, $s]);
-        }
-        if (!empty($data['soft_skills'])) {
-            $stmt = $pdo->prepare("INSERT INTO cv_competences (id_utilisateur, nom, niveau, type) VALUES (?, ?, 90, 'professionnelle')");
-            foreach ($data['soft_skills'] as $s) $stmt->execute([$user_id, $s]);
-        }
+            // 2. Formations
+            if (!empty($data['formations']) && is_array($data['formations'])) {
+                foreach ($data['formations'] as $f) {
+                    $stmt = $pdo->prepare("INSERT INTO cv_formations (id_utilisateur, diplome, etablissement, ville, date_debut, date_fin) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$user_id, $f['diplome'] ?? 'Diplôme', $f['etablissement'] ?? '', $f['ville'] ?? '', !empty($f['date_debut']) ? $f['date_debut'] : null, !empty($f['date_fin']) ? $f['date_fin'] : null]);
+                }
+            }
 
-        @unlink($abs_path); // Nettoyage
-        echo json_encode(['success' => true]);
-        exit();
+            // 3. Expériences
+            if (!empty($data['experiences']) && is_array($data['experiences'])) {
+                foreach ($data['experiences'] as $e) {
+                    $en_poste = ($e['en_poste'] ?? false) ? 1 : 0;
+                    $stmt = $pdo->prepare("INSERT INTO cv_experiences (id_utilisateur, poste, entreprise, ville, date_debut, date_fin, en_poste, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$user_id, $e['poste'] ?? 'Poste', $e['entreprise'] ?? '', $e['ville'] ?? '', !empty($e['date_debut']) ? $e['date_debut'] : null, !empty($e['date_fin']) ? $e['date_fin'] : null, $en_poste, $e['description'] ?? '']);
+                }
+            }
+
+            // 4. Compétences
+            if (!empty($data['hard_skills']) && is_array($data['hard_skills'])) {
+                foreach ($data['hard_skills'] as $s) {
+                    if (!empty($s)) {
+                        $stmt = $pdo->prepare("INSERT INTO cv_competences (id_utilisateur, nom, type) VALUES (?, ?, 'technique')");
+                        $stmt->execute([$user_id, $s]);
+                    }
+                }
+            }
+            if (!empty($data['soft_skills']) && is_array($data['soft_skills'])) {
+                foreach ($data['soft_skills'] as $s) {
+                    if (!empty($s)) {
+                        $stmt = $pdo->prepare("INSERT INTO cv_competences (id_utilisateur, nom, type) VALUES (?, ?, 'professionnelle')");
+                        $stmt->execute([$user_id, $s]);
+                    }
+                }
+            }
+
+            // 5. Langues
+            if (!empty($data['langues']) && is_array($data['langues'])) {
+                foreach ($data['langues'] as $l) {
+                    $stmt = $pdo->prepare("INSERT INTO cv_langues (id_utilisateur, langue, niveau) VALUES (?, ?, ?)");
+                    $stmt->execute([$user_id, $l['langue'] ?? '', $l['niveau'] ?? 'intermediaire']);
+                }
+            }
+
+            // 6. Certifications
+            if (!empty($data['certifications']) && is_array($data['certifications'])) {
+                foreach ($data['certifications'] as $c) {
+                    $stmt = $pdo->prepare("INSERT INTO cv_certifications (id_utilisateur, nom, organisme, date_obtention) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$user_id, $c['nom'] ?? 'Certification', $c['organisme'] ?? '', $c['date_obtention'] ?? null]);
+                }
+            }
+
+            // 7. Centres d'intérêt
+            if (!empty($data['interets']) && is_array($data['interets'])) {
+                foreach ($data['interets'] as $i) {
+                    if (!empty($i)) {
+                        $stmt = $pdo->prepare("INSERT INTO cv_interets (id_utilisateur, nom) VALUES (?, ?)");
+                        $stmt->execute([$user_id, $i]);
+                    }
+                }
+            }
+
+            $pdo->commit();
+            send_json(['success' => true, 'message' => "CV analysé avec succès ! Toutes les sections ont été remplies."]);
+
+        } catch (Exception $e) {
+            @unlink($abs_path);
+            error_log("IMPORT AI ERROR: " . $e->getMessage());
+            send_json(['error' => "Erreur lors de l'analyse IA. Veuillez réessayer."], 500);
+        }
     }
 
-    echo json_encode(['success' => false, 'error' => 'Action non reconnue']);
+    send_json(['error' => 'Action non reconnue'], 400);
 
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => 'Erreur : ' . $e->getMessage()]);
+    error_log("ERREUR mon_cv_ajax.php : " . $e->getMessage());
+    send_json(['error' => 'Une erreur technique est survenue'], 500);
 }
-?>

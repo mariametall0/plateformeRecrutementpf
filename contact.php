@@ -21,8 +21,33 @@ include_header("Contact & Assistance");
 <div class="container py-5 mt-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            <div class="p-5 bg-white shadow-sm rounded-4 border-top border-primary border-5">
-                <h1 class="fw-black mb-1"><i class="bi bi-headset text-primary me-2"></i> Support & Contact</h1>
+            <!-- Information de Contact -->
+            <div class="p-5 bg-success text-white shadow-sm rounded-4 mb-4">
+                <h2 class="fw-black mb-3"><i class="bi bi-headset me-2"></i>Nos Informations de Contact</h2>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="font-size:1.5rem;"><i class="bi bi-telephone-fill"></i></div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Téléphone Mauritel</h5>
+                                <p class="mb-0" style="font-size:1.1rem;"><strong>42519122</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="font-size:1.5rem;"><i class="bi bi-envelope-fill"></i></div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Email Support</h5>
+                                <p class="mb-0"><a href="mailto:admin@admissio.ma" style="color:#fff; text-decoration:underline;">admin@admissio.ma</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-5 bg-white shadow-sm rounded-4 border-top border-success border-5">
+                <h1 class="fw-black mb-1"><i class="bi bi-headset text-success me-2"></i> Support & Contact</h1>
                 <p class="text-muted mb-4">Un problème technique ? Une question sur votre dossier ? Nous sommes là pour vous aider.</p>
 
                 <?php if ($message_success): ?>
@@ -50,7 +75,7 @@ include_header("Contact & Assistance");
                             <label class="form-label fw-bold small text-uppercase text-muted">Message Détaillé</label>
                             <textarea name="message" class="form-control form-control-lg bg-light border-0" rows="5" placeholder="Décrivez votre souci avec un maximum de détails..." required></textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100 fw-bold shadow-sm">
+                        <button type="submit" class="btn btn-success btn-lg rounded-pill w-100 fw-bold shadow-sm">
                             <i class="bi bi-send-fill me-2"></i> Envoyer ma demande
                         </button>
                     </form>
@@ -60,3 +85,4 @@ include_header("Contact & Assistance");
     </div>
 </div>
 <?php include_footer(); ?>
+
